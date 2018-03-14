@@ -1,1 +1,1 @@
-# exchange-graphql-api
+# exchange-graphql-client
