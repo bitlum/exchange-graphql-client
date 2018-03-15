@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 
+	"github.com/bitlum/macaroon-application-auth"
 	"github.com/shopspring/decimal"
 )
 
@@ -13,14 +14,19 @@ type Client struct {
 }
 
 // NewClient create new client for bitlum exchange on specified URL
-// with authorization token.
-func NewClient(url string, authToken string) *Client {
+// with hex encoded binary macaroon. Will error if macaroon decoding
+// errors.
+func NewClient(url string, macaroon string) (*Client, error) {
+	m, err := auth.DecodeMacaroon(macaroon)
+	if err != nil {
+		return nil, err
+	}
 	return &Client{
 		core: &graphQLCore{
-			url:       url,
-			authToken: authToken,
+			url:      url,
+			macaroon: m,
 		},
-	}
+	}, nil
 }
 
 // Markets return markets supported by exchange
