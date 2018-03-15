@@ -9,21 +9,25 @@ import (
 	"net/http"
 )
 
-// backend is client core for bitlum exchange service.
-type backend interface {
+// core is client core which perform low level http request. Used for
+// decouple client from real exchange backend.
+// Has two implementations:
+// 1. graphQLCore: used for real requests to exchange GraphQL server.
+// 2. mockCore: used for testing purposes.
+type core interface {
 	do(r request) ([]byte, error)
 }
 
-// graphqlBackend is a client ccore implementation for bitlum exchange
-// GraphQL service.
-type graphqlBackend struct {
+// graphQLCore is client core implementation used to perform authorized
+// http requests to exchange GraphQL server.
+type graphQLCore struct {
 	url       string
 	authToken string
 }
 
-// do performs authorized GraphQL request to bitlum backend and returns
-// response body.
-func (c *graphqlBackend) do(r request) ([]byte, error) {
+// do performs authorized GraphQL request to bitlum exchange service and
+// returns response body.
+func (c *graphQLCore) do(r request) ([]byte, error) {
 
 	reqJSON, err := json.Marshal(r)
 	if err != nil {

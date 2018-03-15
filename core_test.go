@@ -10,9 +10,9 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-func Test_graphqlBackendImplementsBackend(t *testing.T) {
+func Test_graphQLCoreImplementsCore(t *testing.T) {
 	// should error in compile time if not implements
-	var _ backend = &graphqlBackend{}
+	var _ core = &graphQLCore{}
 }
 
 func Test_responseBase_Error(t *testing.T) {
@@ -114,14 +114,14 @@ func Test_responseBase_Error(t *testing.T) {
 	}
 }
 
-func Test_graphqlBackend_do(t *testing.T) {
+func Test_graphQLCore_do(t *testing.T) {
 
 	const (
 		authToken = "test-auth-token"
 		path      = "/query"
 	)
 
-	checkMethod := func(t *testing.T, s *mockBackendServer) {
+	checkMethod := func(t *testing.T, s *mockExchangeServer) {
 		const want = "POST"
 		got := s.request.method
 		if got != want {
@@ -129,7 +129,7 @@ func Test_graphqlBackend_do(t *testing.T) {
 		}
 	}
 
-	checkURLPath := func(t *testing.T, s *mockBackendServer) {
+	checkURLPath := func(t *testing.T, s *mockExchangeServer) {
 		got := s.request.urlPath
 		want := path
 		if got != want {
@@ -137,7 +137,7 @@ func Test_graphqlBackend_do(t *testing.T) {
 		}
 	}
 
-	checkHeaders := func(t *testing.T, s *mockBackendServer) {
+	checkHeaders := func(t *testing.T, s *mockExchangeServer) {
 		const wantContentType = "application/json"
 
 		h := s.request.header
@@ -155,7 +155,7 @@ func Test_graphqlBackend_do(t *testing.T) {
 		}
 	}
 
-	checkBody := func(t *testing.T, s *mockBackendServer, wantReq request) {
+	checkBody := func(t *testing.T, s *mockExchangeServer, wantReq request) {
 		want, err := json.Marshal(wantReq)
 		if err != nil {
 			t.Fatalf("failed to json.Marshal request: " + err.Error())
@@ -167,10 +167,10 @@ func Test_graphqlBackend_do(t *testing.T) {
 		}
 	}
 
-	t.Run("when backend is down", func(t *testing.T) {
+	t.Run("when core is down", func(t *testing.T) {
 		s := newMockBackendServer()
 		s.stop()
-		c := &graphqlBackend{
+		c := &graphQLCore{
 			url:       s.url() + path,
 			authToken: authToken,
 		}
@@ -188,7 +188,7 @@ func Test_graphqlBackend_do(t *testing.T) {
 		s := newMockBackendServer()
 		defer s.stop()
 		s.response.code = 301
-		c := &graphqlBackend{
+		c := &graphQLCore{
 			url:       s.url() + path,
 			authToken: authToken,
 		}
@@ -212,7 +212,7 @@ func Test_graphqlBackend_do(t *testing.T) {
 		defer s.stop()
 		s.response.code = 200
 		s.response.body = "response body"
-		c := &graphqlBackend{
+		c := &graphQLCore{
 			url:       s.url() + path,
 			authToken: authToken,
 		}
@@ -235,7 +235,7 @@ func Test_graphqlBackend_do(t *testing.T) {
 	})
 }
 
-// mockBackendRequest is a bitlum backend mock service request data
+// mockBackendRequest is a bitlum core mock service request data.
 type mockBackendRequest struct {
 	method  string
 	urlPath string
@@ -244,10 +244,10 @@ type mockBackendRequest struct {
 	error   error
 }
 
-// mockBackendServer is mock of bitlum backend server for testing
+// mockExchangeServer is mock of bitlum exchange server for testing
 // purposes. It stores last request data and response with preset
-// response data
-type mockBackendServer struct {
+// response data.
+type mockExchangeServer struct {
 	httpServer *httptest.Server
 	// last request data, nil if no request recieved yet
 	request *mockBackendRequest
@@ -258,31 +258,33 @@ type mockBackendServer struct {
 	}
 }
 
-// newMockBackendServer return new started bitlum backend mock server
-func newMockBackendServer() *mockBackendServer {
-	s := &mockBackendServer{}
+// newMockBackendServer return new started bitlum core mock server.
+func newMockBackendServer() *mockExchangeServer {
+	s := &mockExchangeServer{}
 	s.start()
 	return s
 }
 
-// start starts test http server and returns its URL
-func (s *mockBackendServer) start() {
+// start starts test http server and returns its URL.
+func (s *mockExchangeServer) start() {
 	s.request = nil
 	s.httpServer = httptest.NewServer(s)
 }
 
 // stop stops test http server. Indented to be called after start and
 // before next start.
-func (s *mockBackendServer) stop() {
+func (s *mockExchangeServer) stop() {
 	s.httpServer.Close()
 }
 
-func (s *mockBackendServer) url() string {
+// url returns current http server URL.
+func (s *mockExchangeServer) url() string {
 	return s.httpServer.URL
 }
 
-// ServeHTTP is http.Handler implementation. Stores request data.
-func (s *mockBackendServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+// ServeHTTP is http.Handler implementation. Stores request data and
+// responses with predefined data.
+func (s *mockExchangeServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.request = &mockBackendRequest{}
 	s.request.method = r.Method
 	s.request.urlPath = r.URL.String()

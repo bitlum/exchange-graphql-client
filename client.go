@@ -7,27 +7,20 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-const exchangeID = "bitlum"
-
-// Client is the http://exchange.bitlum.io exchange
+// Client is the http://exchange.bitlum.io exchange client.
 type Client struct {
-	backend
+	core
 }
 
-// NewExchangeClient create new bitlum exchange with specified URL and
-// authorization token.
-func NewClient(url string, authToken string) *Client {
+// NewClient create new client for bitlum exchange on specified URL
+// with macaroon authorization token.
+func NewClient(url string, macaroonAuthToken string) *Client {
 	return &Client{
-		backend: &graphqlBackend{
+		core: &graphQLCore{
 			url:       url,
-			authToken: authToken,
+			authToken: macaroonAuthToken,
 		},
 	}
-}
-
-// ID returns exchange ID
-func (c *Client) ID() string {
-	return exchangeID
 }
 
 // Markets return markets supported by exchange
@@ -40,7 +33,7 @@ func (c *Client) Markets() []string {
 	}
 }
 
-// UserID returns exchange user ID, user on behalf which all
+// UserID returns exchange user ID on behalf which all
 // exchange operations are performing.
 func (c *Client) UserID() (string, error) {
 
@@ -74,21 +67,25 @@ func (c *Client) UserID() (string, error) {
 	}
 
 	if err := resp.Error(); err != nil {
-		return "", errors.New("bitlum server-side error: " +
-			err.Error())
+		return "", errors.New("exchange error: " + err.Error())
 	}
 
 	return resp.Data.User.ID, nil
 }
 
+// Ticker is stock exchange market ticker with information about prices.
 type Ticker struct {
-	Market     string
-	Last       decimal.Decimal
+	// Market is a stock exchange market, e.g. BTCETH.
+	Market string
+	// Last is the price of last order proceed by the
+	// exchange engine.
+	Last decimal.Decimal
+	// ChangeLast is a change of the last price.
 	ChangeLast decimal.Decimal
 }
 
 // tickersRequestVariables is a query variables used in request
-// in bitlum Tickers method.
+// in client Tickers method.
 type tickersRequestVariables struct {
 	Markets []string `json:"markets"`
 }
@@ -132,32 +129,42 @@ func (c *Client) Tickers(markets []string) ([]Ticker, error) {
 	}
 
 	if err := resp.Error(); err != nil {
-		return nil, errors.New("bitlum server-side error: " +
-			err.Error())
+		return nil, errors.New("exchange error: " + err.Error())
 	}
 
 	return resp.Data.Markets, nil
 }
 
+// Ask is an order to sell stock (right asset in market) with given
+// maximum price and within given volume. Price is given in amount of
+// money (left asset in market). E.g. ask in BTCETH market is an
+// order to sell ETH for BTC.
+// https://www.investopedia.com/terms/b/bid-and-asked.asp
 type Ask struct {
 	Price  decimal.Decimal
 	Volume decimal.Decimal
 }
 
+// Bid is an order to buy stock (right asset in market) with given
+// maximum price and within given volume. Price is given in amount of
+// money (left asset in market). E.g. bid in BTCETH market is an
+// order to buy ETH using BTC.
+// https://www.investopedia.com/terms/b/bid-and-asked.asp
 type Bid struct {
 	Price  decimal.Decimal
 	Volume decimal.Decimal
 }
 
 // Depth is limited lists of asks and bids in benefit order.
-// Limit depends on the specific exchange
 type Depth struct {
+	// Top asks by increasing price
 	Asks []Ask
+	// Top bids by decreasing price.
 	Bids []Bid
 }
 
 // depthRequestVariables is a query variables used in request
-// in bitlum Depth method.
+// in client Depth method.
 type depthRequestVariables struct {
 	Market string `json:"market"`
 }
@@ -200,31 +207,41 @@ func (c *Client) Depth(market string) (Depth, error) {
 	}
 
 	if err := json.Unmarshal(respJSON, &resp); err != nil {
-		return depth, errors.New("failed to json.Unmarshal resp: " +
+		return depth, errors.New("failed to json.Unmarsh	al resp: " +
 			err.Error())
 	}
 
 	if err := resp.Error(); err != nil {
-		return depth, errors.New("bitlum server-side error: " +
-			err.Error())
+		return depth, errors.New("exchange error: " + err.Error())
 	}
 
 	return resp.Data.Depth, nil
 }
 
 // depositRequestVariables is a query variables used in request
-// in bitlum Deposits method.
+// in client Deposits method.
 type depositRequestVariables struct {
 	Assets []string `json:"assets"`
 	Offset int64    `json:"offset"`
 	Limit  int64    `json:"limit"`
 }
 
+// Deposit represents an account deposit.
 type Deposit struct {
-	PaymentID   string
+	// PaymentID is system specific withdraw operation ID.
+	// In blockchain it is transaction ID, in lightning network
+	// it is payment hash.
+	PaymentID string
+
+	// PaymentSystem is a payment system in which deposit payment was
+	// occurred,
 	PaymentType string
-	Change      decimal.Decimal
-	Time        float64
+
+	// Change is an amount on which balance has been changed.
+	Change decimal.Decimal
+
+	// Time when deposit was registered.
+	Time float64
 }
 
 // Deposits returns account deposits in given offset and limit
@@ -273,8 +290,7 @@ $limit: Int!) {
 	}
 
 	if err := resp.Error(); err != nil {
-		return nil, errors.New("bitlum server-side error: " +
-			err.Error())
+		return nil, errors.New("exchange error: " + err.Error())
 	}
 
 	return resp.Data.Deposits, nil
@@ -312,7 +328,7 @@ type Order struct {
 }
 
 // orderRequestVariables is a query variables used in request
-// in bitlum Order method.
+// in client Order method.
 type orderRequestVariables struct {
 	ID int64 `json:"id"`
 }
@@ -356,22 +372,22 @@ func (c *Client) Order(id int64) (Order, error) {
 	}
 
 	if err := resp.Error(); err != nil {
-		return Order{}, errors.New("bitlum server-side error: " +
-			err.Error())
+		return Order{}, errors.New("exchange error: " + err.Error())
 	}
 
 	return resp.Data.Order, nil
 }
 
 // createOrderRequestVariables is a query variables used in request
-// in bitlum CreateOrder method.
+// in client CreateOrder method.
 type createOrderRequestVariables struct {
 	Market string          `json:"market"`
 	Amount decimal.Decimal `json:"amount"`
 }
 
-// CreateBidOrder creates bid order on market. Bid order means that
-// market[0] asset is used to buy market[1] asset
+// CreateOrder creates bid order on market. Bid order means that
+// left asset is used to buy right asset. E.g. in market BTCETH this
+// method creates an order to buy ETH using BTC.
 func (c *Client) CreateOrder(market string,
 	amount decimal.Decimal) (Order, error) {
 
@@ -416,8 +432,7 @@ side: bid) {
 	}
 
 	if err := resp.Error(); err != nil {
-		return Order{}, errors.New("bitlum server-side error: " +
-			err.Error())
+		return Order{}, errors.New("exchange error: " + err.Error())
 	}
 
 	return resp.Data.Order, nil
@@ -440,7 +455,7 @@ type Withdrawal struct {
 }
 
 // withdrawRequestVariables is a query variables used in request
-// in bitlum Withdraw method.
+// in client Withdraw method.
 type withdrawRequestVariables struct {
 	Asset   string          `json:"asset"`
 	Amount  decimal.Decimal `json:"amount"`
@@ -496,14 +511,14 @@ $address: String!) {
 
 	if err := resp.Error(); err != nil {
 		return Withdrawal{},
-			errors.New("bitlum server-side error: " + err.Error())
+			errors.New("exchange error: " + err.Error())
 	}
 
 	return resp.Data.Withdrawal, nil
 }
 
 // reachableRequestVariables is a query variables used in request
-// in bitlum LightningNodeReachable method.
+// in client LightningNodeReachable method.
 type reachableRequestVariables struct {
 	Asset          string `json:"asset"`
 	IdentityPubKey string `json:"identityKey"`
@@ -548,52 +563,55 @@ func (c *Client) LightningNodeReachable(asset string,
 
 	if err := resp.Error(); err != nil {
 		return false,
-			errors.New("bitlum server-side error: " + err.Error())
+			errors.New("exchange error: " + err.Error())
 	}
 
 	return resp.Data.Reachable, nil
 }
 
-// LightningNodeInfo is a lightning network node info
+// LightningNodeInfo is a lightning network node info.
 type LightningNodeInfo struct {
 	Host      string
 	Port      string
 	MinAmount decimal.Decimal
 	MaxAmount decimal.Decimal
 
-	// The identity pubkey of the current node.
+	// IdentityPubkey is the identity pubkey of the current node.
 	IdentityPubkey string
 
-	// If applicable, the alias of the current node, e.g. "bob"
+	// Alias if applicable, the alias of the current node, e.g. "bob".
 	Alias string
 
-	// Number of pending channels
+	// NumPendingChannels is the number of pending channels.
 	NumPendingChannels uint32
 
-	// Number of active channels
+	// NumActiveChannels is the number of active channels.
 	NumActiveChannels uint32
 
-	// Number of peers
+	// NumPeers is the number of peers.
 	NumPeers uint32
 
-	// The node's current view of the height of the best block
+	// BlockHeight is the node's current view of the height of the best
+	// block.
 	BlockHeight uint32
 
-	// The node's current view of the hash of the best block
+	// BlockHash is the node's current view of the hash of the best
+	// block.
 	BlockHash string
 
-	// Whether the wallet's view is synced to the main chain
+	// SyncedToChain means whether the wallet's view is synced to the
+	// main chain.
 	SyncedToChain bool
 
-	// Whether the current node is connected to testnet
+	// Testnet means whether the current node is connected to testnet
 	Testnet bool
 
-	// A list of active chains the node is connected to
+	// Chains is a list of active chains the node is connected to
 	Chains []string
 }
 
 // nodeInfoRequestVariables is a query variables used in request
-// in bitlum LightningNodeInfo method.
+// in client LightningNodeInfo method.
 type nodeInfoRequestVariables struct {
 	Asset string `json:"asset"`
 }
@@ -648,14 +666,14 @@ func (c *Client) LightningNodeInfo(asset string) (LightningNodeInfo,
 
 	if err := resp.Error(); err != nil {
 		return LightningNodeInfo{},
-			errors.New("bitlum server-side error: " + err.Error())
+			errors.New("exchange error: " + err.Error())
 	}
 
 	return resp.Data.Info, nil
 }
 
 // lightningCreateRequestVariables is a query variables used in request
-// in bitlum LightningCreateInvoice method.
+// in client LightningCreateInvoice method.
 type lightningCreateRequestVariables struct {
 	Asset  string          `json:"asset"`
 	Amount decimal.Decimal `json:"amount"`
@@ -698,15 +716,14 @@ $amount: String!) {
 	}
 
 	if err := resp.Error(); err != nil {
-		return "", errors.New("bitlum server-side error: " +
-			err.Error())
+		return "", errors.New("exchange error: " + err.Error())
 	}
 
 	return resp.Data.Invoice, nil
 }
 
 // lightningWithdrawRequestError is a query variables used in request
-// in bitlum LightningWithdraw method.
+// in client LightningWithdraw method.
 type lightningWithdrawRequestError struct {
 	Asset   string `json:"asset"`
 	Invoice string `json:"invoice"`
@@ -756,7 +773,7 @@ func (c *Client) LightningWithdraw(asset string,
 
 	if err := resp.Error(); err != nil {
 		return Withdrawal{},
-			errors.New("bitlum server-side error: " + err.Error())
+			errors.New("exchange error: " + err.Error())
 	}
 
 	return resp.Data.Withdrawal, nil

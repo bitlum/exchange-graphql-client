@@ -17,28 +17,20 @@ func TestNewExchange(t *testing.T) {
 		wantAuthToken = "test-auth-token"
 	)
 	client := NewClient(wantURL, wantAuthToken)
-	if client.backend == nil {
-		t.Fatal("want not nil backend")
+	if client.core == nil {
+		t.Fatal("want not nil core")
 	}
-	backend, isRealBackend := client.backend.(*graphqlBackend)
+	backend, isRealBackend := client.core.(*graphQLCore)
 	if !isRealBackend {
-		t.Fatal("want client.backend is backend")
+		t.Fatal("want client.core is core")
 	}
 	if backend.url != wantURL {
-		t.Fatalf("want client.backend.wantURL is `%s` but got `%s`",
+		t.Fatalf("want client.core.wantURL is `%s` but got `%s`",
 			wantURL, backend.url)
 	}
 	if backend.authToken != wantAuthToken {
-		t.Fatalf("want client.backend.wantAuthToken is `%s` but got `%s`",
+		t.Fatalf("want client.core.wantAuthToken is `%s` but got `%s`",
 			wantAuthToken, backend.authToken)
-	}
-}
-
-func TestClient_ID(t *testing.T) {
-	const wantID = "bitlum"
-	gotID := (&Client{}).ID()
-	if gotID != wantID {
-		t.Fatalf("want ID `%s` but got `%s`", wantID, gotID)
 	}
 }
 
@@ -62,11 +54,11 @@ func TestClient_UserID(t *testing.T) {
 			t.Fatalf("want nil request variables but got %#v", got.Variables)
 		}
 	}
-	t.Run("when backend error", func(t *testing.T) {
-		backend := &mockBackend{
+	t.Run("when core error", func(t *testing.T) {
+		backend := &mockCore{
 			error: errors.New("fail"),
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		_, err := client.UserID()
 		if err == nil {
 			t.Fatal("want error but got no error")
@@ -77,12 +69,12 @@ func TestClient_UserID(t *testing.T) {
 		checkRequest(t, backend.request)
 	})
 	t.Run("when invalid response json", func(t *testing.T) {
-		backend := &mockBackend{
+		backend := &mockCore{
 			respJSON: `
 				{ "errors": 123, "data": "qwerty" }
 			`,
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		_, err := client.UserID()
 		if err == nil {
 			t.Fatal("want error but got no error")
@@ -92,30 +84,30 @@ func TestClient_UserID(t *testing.T) {
 		}
 		checkRequest(t, backend.request)
 	})
-	t.Run("when server-side error", func(t *testing.T) {
-		backend := &mockBackend{
+	t.Run("when exchange error", func(t *testing.T) {
+		backend := &mockCore{
 			respJSON: `
 				{ "errors": [{ "message": "some error" }] }
 			`,
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		_, err := client.UserID()
 		if err == nil {
 			t.Fatal("want error but got no error")
 		}
-		if !strings.Contains(err.Error(), "server-side error") {
-			t.Fatalf("want server-side error but got `%s`", err.Error())
+		if !strings.Contains(err.Error(), "exchange error") {
+			t.Fatalf("want exchange error but got `%s`", err.Error())
 		}
 		checkRequest(t, backend.request)
 	})
 	t.Run("when valid response without errors", func(t *testing.T) {
 		const wantUserID = "some-id"
-		backend := &mockBackend{
+		backend := &mockCore{
 			respJSON: `
 				{ "data": { "me": { "id": "` + wantUserID + `" } } }
 			`,
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		gotUserID, err := client.UserID()
 		if err != nil {
 			t.Fatalf("want no error but got `%s", err.Error())
@@ -139,7 +131,7 @@ func TestClient_Tickers(t *testing.T) {
 		}
 	}
 	t.Run("when empty markets", func(t *testing.T) {
-		client := &Client{backend: nil}
+		client := &Client{core: nil}
 		_, err := client.Tickers(nil)
 		if err == nil {
 			t.Fatal("want error but got no error")
@@ -148,11 +140,11 @@ func TestClient_Tickers(t *testing.T) {
 			t.Fatalf("want `not empty markets expected` error but got `%s`", err.Error())
 		}
 	})
-	t.Run("when backend error", func(t *testing.T) {
-		backend := &mockBackend{
+	t.Run("when core error", func(t *testing.T) {
+		backend := &mockCore{
 			error: errors.New("fail"),
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		_, err := client.Tickers(wantMarkets)
 		if err == nil {
 			t.Fatal("want error but got no error")
@@ -163,12 +155,12 @@ func TestClient_Tickers(t *testing.T) {
 		checkRequest(t, backend.request)
 	})
 	t.Run("when invalid response json", func(t *testing.T) {
-		backend := &mockBackend{
+		backend := &mockCore{
 			respJSON: `
 				{ "errors": 123, "data": "qwerty" }
 			`,
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		_, err := client.Tickers(wantMarkets)
 		if err == nil {
 			t.Fatal("want error but got no error")
@@ -178,19 +170,19 @@ func TestClient_Tickers(t *testing.T) {
 		}
 		checkRequest(t, backend.request)
 	})
-	t.Run("when server-side error", func(t *testing.T) {
-		backend := &mockBackend{
+	t.Run("when exchange error", func(t *testing.T) {
+		backend := &mockCore{
 			respJSON: `
 				{ "errors": [{ "message": "some error" }] }
 			`,
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		_, err := client.Tickers(wantMarkets)
 		if err == nil {
 			t.Fatal("want error but got no error")
 		}
-		if !strings.Contains(err.Error(), "server-side error") {
-			t.Fatalf("want server-side error but got `%s`", err.Error())
+		if !strings.Contains(err.Error(), "exchange error") {
+			t.Fatalf("want exchange error but got `%s`", err.Error())
 		}
 		checkRequest(t, backend.request)
 	})
@@ -204,7 +196,7 @@ func TestClient_Tickers(t *testing.T) {
 			Last:       dec(15),
 			ChangeLast: dec(25),
 		}}
-		backend := &mockBackend{
+		backend := &mockCore{
 			respJSON: `
 				{ "data": { "markets": [ 
 					{ "market": "BTCETH", "last": "10", "changeLast": "20" },
@@ -212,7 +204,7 @@ func TestClient_Tickers(t *testing.T) {
 				] } }
 			`,
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		gotTickers, err := client.Tickers(
 			[]string{"BTCETH", "BTCDASH"})
 		if err != nil {
@@ -238,11 +230,11 @@ func TestClient_Depth(t *testing.T) {
 				wantVariables, got.Variables)
 		}
 	}
-	t.Run("when backend error", func(t *testing.T) {
-		backend := &mockBackend{
+	t.Run("when core error", func(t *testing.T) {
+		backend := &mockCore{
 			error: errors.New("fail"),
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		_, err := client.Depth(wantMarket)
 		if err == nil {
 			t.Fatal("want error but got no error")
@@ -253,12 +245,12 @@ func TestClient_Depth(t *testing.T) {
 		checkRequest(t, backend.request)
 	})
 	t.Run("when invalid response json", func(t *testing.T) {
-		backend := &mockBackend{
+		backend := &mockCore{
 			respJSON: `
 				{ "errors": 123, "data": "qwerty" }
 			`,
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		_, err := client.Depth(wantMarket)
 		if err == nil {
 			t.Fatal("want error but got no error")
@@ -268,19 +260,19 @@ func TestClient_Depth(t *testing.T) {
 		}
 		checkRequest(t, backend.request)
 	})
-	t.Run("when server-side error", func(t *testing.T) {
-		backend := &mockBackend{
+	t.Run("when exchange error", func(t *testing.T) {
+		backend := &mockCore{
 			respJSON: `
 				{ "errors": [{ "message": "some error" }] }
 			`,
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		_, err := client.Depth(wantMarket)
 		if err == nil {
 			t.Fatal("want error but got no error")
 		}
-		if !strings.Contains(err.Error(), "server-side error") {
-			t.Fatalf("want server-side error but got `%s`", err.Error())
+		if !strings.Contains(err.Error(), "exchange error") {
+			t.Fatalf("want exchange error but got `%s`", err.Error())
 		}
 		checkRequest(t, backend.request)
 	})
@@ -295,7 +287,7 @@ func TestClient_Depth(t *testing.T) {
 				Price:  dec(1.5),
 				Volume: dec(2.5)}},
 		}
-		backend := &mockBackend{
+		backend := &mockCore{
 			respJSON: `
 				{ "data": { "depth": {
 					"asks": [{ "price": "1", "volume": "2" },
@@ -304,7 +296,7 @@ func TestClient_Depth(t *testing.T) {
 				} } }
 			`,
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		gotDepth, err := client.Depth(wantMarket)
 		if err != nil {
 			t.Fatalf("want no error but got `%s", err.Error())
@@ -336,11 +328,11 @@ func TestClient_Deposits(t *testing.T) {
 				wantVariables, got.Variables)
 		}
 	}
-	t.Run("when backend error", func(t *testing.T) {
-		backend := &mockBackend{
+	t.Run("when core error", func(t *testing.T) {
+		backend := &mockCore{
 			error: errors.New("fail"),
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		_, err := client.Deposits(wantAsset, wantOffset, wantLimit)
 		if err == nil {
 			t.Fatal("want error but got no error")
@@ -351,12 +343,12 @@ func TestClient_Deposits(t *testing.T) {
 		checkRequest(t, backend.request)
 	})
 	t.Run("when invalid response json", func(t *testing.T) {
-		backend := &mockBackend{
+		backend := &mockCore{
 			respJSON: `
 				{ "errors": 123, "data": "qwerty" }
 			`,
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		_, err := client.Deposits(wantAsset, wantOffset, wantLimit)
 		if err == nil {
 			t.Fatal("want error but got no error")
@@ -366,24 +358,24 @@ func TestClient_Deposits(t *testing.T) {
 		}
 		checkRequest(t, backend.request)
 	})
-	t.Run("when server-side error", func(t *testing.T) {
-		backend := &mockBackend{
+	t.Run("when exchange error", func(t *testing.T) {
+		backend := &mockCore{
 			respJSON: `
 				{ "errors": [{ "message": "some error" }] }
 			`,
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		_, err := client.Deposits(wantAsset, wantOffset, wantLimit)
 		if err == nil {
 			t.Fatal("want error but got no error")
 		}
-		if !strings.Contains(err.Error(), "server-side error") {
-			t.Fatalf("want server-side error but got `%s`", err.Error())
+		if !strings.Contains(err.Error(), "exchange error") {
+			t.Fatalf("want exchange error but got `%s`", err.Error())
 		}
 		checkRequest(t, backend.request)
 	})
 	t.Run("when unknown payment system", func(t *testing.T) {
-		backend := &mockBackend{
+		backend := &mockCore{
 			respJSON: `
 				{ "data": { "balanceUpdateRecords": [
 					{ "change": "0.1", "time": 123, 
@@ -391,7 +383,7 @@ func TestClient_Deposits(t *testing.T) {
 				] } }
 			`,
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		_, err := client.Deposits(wantAsset, wantOffset, wantLimit)
 		if err != nil {
 			t.Fatalf("want no error but got error `%v`", err)
@@ -410,7 +402,7 @@ func TestClient_Deposits(t *testing.T) {
 			Change:      dec(-0.1),
 			Time:        345,
 		}}
-		backend := &mockBackend{
+		backend := &mockCore{
 			respJSON: `
 				{ "data": { "balanceUpdateRecords": [
 					{ "change": "0.1", "time": 123, 
@@ -420,7 +412,7 @@ func TestClient_Deposits(t *testing.T) {
 				] } }
 			`,
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		gotDeposits, err := client.Deposits(wantAsset, wantOffset,
 			wantLimit)
 		if err != nil {
@@ -446,11 +438,11 @@ func TestClient_Order(t *testing.T) {
 				wantVariables, got.Variables)
 		}
 	}
-	t.Run("when backend error", func(t *testing.T) {
-		backend := &mockBackend{
+	t.Run("when core error", func(t *testing.T) {
+		backend := &mockCore{
 			error: errors.New("fail"),
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		_, err := client.Order(wantID)
 		if err == nil {
 			t.Fatal("want error but got no error")
@@ -461,12 +453,12 @@ func TestClient_Order(t *testing.T) {
 		checkRequest(t, backend.request)
 	})
 	t.Run("when invalid response json", func(t *testing.T) {
-		backend := &mockBackend{
+		backend := &mockCore{
 			respJSON: `
 				{ "errors": 123, "data": "qwerty" }
 			`,
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		_, err := client.Order(wantID)
 		if err == nil {
 			t.Fatal("want error but got no error")
@@ -476,24 +468,24 @@ func TestClient_Order(t *testing.T) {
 		}
 		checkRequest(t, backend.request)
 	})
-	t.Run("when server-side error", func(t *testing.T) {
-		backend := &mockBackend{
+	t.Run("when exchange error", func(t *testing.T) {
+		backend := &mockCore{
 			respJSON: `
 				{ "errors": [{ "message": "some error" }] }
 			`,
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		_, err := client.Order(wantID)
 		if err == nil {
 			t.Fatal("want error but got no error")
 		}
-		if !strings.Contains(err.Error(), "server-side error") {
-			t.Fatalf("want server-side error but got `%s`", err.Error())
+		if !strings.Contains(err.Error(), "exchange error") {
+			t.Fatalf("want exchange error but got `%s`", err.Error())
 		}
 		checkRequest(t, backend.request)
 	})
 	t.Run("when unknown order status", func(t *testing.T) {
-		backend := &mockBackend{
+		backend := &mockCore{
 			respJSON: `
 				{ "data": { "order": {
 					"id": 123,
@@ -506,7 +498,7 @@ func TestClient_Order(t *testing.T) {
 				} } }
 			`,
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		_, err := client.Order(wantID)
 		if err != nil {
 			t.Fatalf("want no error but got no error `%v`", err)
@@ -523,7 +515,7 @@ func TestClient_Order(t *testing.T) {
 			DealStock: dec(-0.4),
 			Left:      dec(1),
 		}
-		backend := &mockBackend{
+		backend := &mockCore{
 			respJSON: `
 				{ "data": { "order": {
 					"id": 123,
@@ -536,7 +528,7 @@ func TestClient_Order(t *testing.T) {
 				} } }
 			`,
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		gotOrder, err := client.Order(wantID)
 		if err != nil {
 			t.Fatalf("want no error but got `%s", err.Error())
@@ -565,11 +557,11 @@ func TestClient_CreateOrder(t *testing.T) {
 				wantVariables, got.Variables)
 		}
 	}
-	t.Run("when backend error", func(t *testing.T) {
-		backend := &mockBackend{
+	t.Run("when core error", func(t *testing.T) {
+		backend := &mockCore{
 			error: errors.New("fail"),
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		_, err := client.CreateOrder(wantMarket, wantAmount)
 		if err == nil {
 			t.Fatal("want error but got no error")
@@ -580,12 +572,12 @@ func TestClient_CreateOrder(t *testing.T) {
 		checkRequest(t, backend.request)
 	})
 	t.Run("when invalid response json", func(t *testing.T) {
-		backend := &mockBackend{
+		backend := &mockCore{
 			respJSON: `
 				{ "errors": 123, "data": "qwerty" }
 			`,
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		_, err := client.CreateOrder(wantMarket, wantAmount)
 		if err == nil {
 			t.Fatal("want error but got no error")
@@ -595,24 +587,24 @@ func TestClient_CreateOrder(t *testing.T) {
 		}
 		checkRequest(t, backend.request)
 	})
-	t.Run("when server-side error", func(t *testing.T) {
-		backend := &mockBackend{
+	t.Run("when exchange error", func(t *testing.T) {
+		backend := &mockCore{
 			respJSON: `
 				{ "errors": [{ "message": "some error" }] }
 			`,
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		_, err := client.CreateOrder(wantMarket, wantAmount)
 		if err == nil {
 			t.Fatal("want error but got no error")
 		}
-		if !strings.Contains(err.Error(), "server-side error") {
-			t.Fatalf("want server-side error but got `%s`", err.Error())
+		if !strings.Contains(err.Error(), "exchange error") {
+			t.Fatalf("want exchange error but got `%s`", err.Error())
 		}
 		checkRequest(t, backend.request)
 	})
 	t.Run("when unknown order status", func(t *testing.T) {
-		backend := &mockBackend{
+		backend := &mockCore{
 			respJSON: `
 				{ "data": { "createMarketOrder": {
 					"id": 123,
@@ -625,7 +617,7 @@ func TestClient_CreateOrder(t *testing.T) {
 				} } }
 			`,
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		_, err := client.CreateOrder(wantMarket, wantAmount)
 		if err != nil {
 			t.Fatalf("want no error but got error `%v`", err)
@@ -642,7 +634,7 @@ func TestClient_CreateOrder(t *testing.T) {
 			DealStock: dec(-0.4),
 			Left:      dec(1),
 		}
-		backend := &mockBackend{
+		backend := &mockCore{
 			respJSON: `
 				{ "data": { "createMarketOrder": {
 					"id": 123,
@@ -655,7 +647,7 @@ func TestClient_CreateOrder(t *testing.T) {
 				} } }
 			`,
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		gotOrder, err := client.CreateOrder(wantMarket, wantAmount)
 		if err != nil {
 			t.Fatalf("want no error but got `%s", err.Error())
@@ -686,11 +678,11 @@ func TestClient_Withdraw(t *testing.T) {
 				wantVariables, got.Variables)
 		}
 	}
-	t.Run("when backend error", func(t *testing.T) {
-		backend := &mockBackend{
+	t.Run("when core error", func(t *testing.T) {
+		backend := &mockCore{
 			error: errors.New("fail"),
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		_, err := client.Withdraw(wantAsset, wantAmount, wantAddress)
 		if err == nil {
 			t.Fatal("want error but got no error")
@@ -701,12 +693,12 @@ func TestClient_Withdraw(t *testing.T) {
 		checkRequest(t, backend.request)
 	})
 	t.Run("when invalid response json", func(t *testing.T) {
-		backend := &mockBackend{
+		backend := &mockCore{
 			respJSON: `
 				{ "errors": 123, "data": "qwerty" }
 			`,
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		_, err := client.Withdraw(wantAsset, wantAmount, wantAddress)
 		if err == nil {
 			t.Fatal("want error but got no error")
@@ -716,19 +708,19 @@ func TestClient_Withdraw(t *testing.T) {
 		}
 		checkRequest(t, backend.request)
 	})
-	t.Run("when server-side error", func(t *testing.T) {
-		backend := &mockBackend{
+	t.Run("when exchange error", func(t *testing.T) {
+		backend := &mockCore{
 			respJSON: `
 				{ "errors": [{ "message": "some error" }] }
 			`,
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		_, err := client.Withdraw(wantAsset, wantAmount, wantAddress)
 		if err == nil {
 			t.Fatal("want error but got no error")
 		}
-		if !strings.Contains(err.Error(), "server-side error") {
-			t.Fatalf("want server-side error but got `%s`", err.Error())
+		if !strings.Contains(err.Error(), "exchange error") {
+			t.Fatalf("want exchange error but got `%s`", err.Error())
 		}
 		checkRequest(t, backend.request)
 	})
@@ -738,7 +730,7 @@ func TestClient_Withdraw(t *testing.T) {
 			PaymentAddr: "some-address",
 			Change:      dec(15.75),
 		}
-		backend := &mockBackend{
+		backend := &mockCore{
 			respJSON: `
 				{ "data": { "withdrawWithBlockchain": {
 					"paymentID": "some-id",
@@ -747,7 +739,7 @@ func TestClient_Withdraw(t *testing.T) {
 				} } }
 			`,
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		gotWithdrawal, err := client.Withdraw(wantAsset, wantAmount,
 			wantAddress)
 		if err != nil {
@@ -777,11 +769,11 @@ func TestClient_LightningNodeReachable(t *testing.T) {
 				wantVariables, got.Variables)
 		}
 	}
-	t.Run("when backend error", func(t *testing.T) {
-		backend := &mockBackend{
+	t.Run("when core error", func(t *testing.T) {
+		backend := &mockCore{
 			error: errors.New("fail"),
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		_, err := client.LightningNodeReachable(wantAsset, wantIdentityPubKey)
 		if err == nil {
 			t.Fatal("want error but got no error")
@@ -792,12 +784,12 @@ func TestClient_LightningNodeReachable(t *testing.T) {
 		checkRequest(t, backend.request)
 	})
 	t.Run("when invalid response json", func(t *testing.T) {
-		backend := &mockBackend{
+		backend := &mockCore{
 			respJSON: `
 				{ "errors": 123, "data": "qwerty" }
 			`,
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		_, err := client.LightningNodeReachable(wantAsset, wantIdentityPubKey)
 		if err == nil {
 			t.Fatal("want error but got no error")
@@ -807,30 +799,30 @@ func TestClient_LightningNodeReachable(t *testing.T) {
 		}
 		checkRequest(t, backend.request)
 	})
-	t.Run("when server-side error", func(t *testing.T) {
-		backend := &mockBackend{
+	t.Run("when exchange error", func(t *testing.T) {
+		backend := &mockCore{
 			respJSON: `
 				{ "errors": [{ "message": "some error" }] }
 			`,
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		_, err := client.LightningNodeReachable(wantAsset, wantIdentityPubKey)
 		if err == nil {
 			t.Fatal("want error but got no error")
 		}
-		if !strings.Contains(err.Error(), "server-side error") {
-			t.Fatalf("want server-side error but got `%s`", err.Error())
+		if !strings.Contains(err.Error(), "exchange error") {
+			t.Fatalf("want exchange error but got `%s`", err.Error())
 		}
 		checkRequest(t, backend.request)
 	})
 	t.Run("when valid response without errors", func(t *testing.T) {
 		wantReachable := false
-		backend := &mockBackend{
+		backend := &mockCore{
 			respJSON: `
 				{ "data": { "checkReachable": false } }
 			`,
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		gotReachable, err := client.LightningNodeReachable(wantAsset,
 			wantIdentityPubKey)
 		if err != nil {
@@ -856,11 +848,11 @@ func TestClient_LightningNodeInfo(t *testing.T) {
 				wantVariables, got.Variables)
 		}
 	}
-	t.Run("when backend error", func(t *testing.T) {
-		backend := &mockBackend{
+	t.Run("when core error", func(t *testing.T) {
+		backend := &mockCore{
 			error: errors.New("fail"),
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		_, err := client.LightningNodeInfo(wantAsset)
 		if err == nil {
 			t.Fatal("want error but got no error")
@@ -871,12 +863,12 @@ func TestClient_LightningNodeInfo(t *testing.T) {
 		checkRequest(t, backend.request)
 	})
 	t.Run("when invalid response json", func(t *testing.T) {
-		backend := &mockBackend{
+		backend := &mockCore{
 			respJSON: `
 				{ "errors": 123, "data": "qwerty" }
 			`,
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		_, err := client.LightningNodeInfo(wantAsset)
 		if err == nil {
 			t.Fatal("want error but got no error")
@@ -886,19 +878,19 @@ func TestClient_LightningNodeInfo(t *testing.T) {
 		}
 		checkRequest(t, backend.request)
 	})
-	t.Run("when server-side error", func(t *testing.T) {
-		backend := &mockBackend{
+	t.Run("when exchange error", func(t *testing.T) {
+		backend := &mockCore{
 			respJSON: `
 				{ "errors": [{ "message": "some error" }] }
 			`,
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		_, err := client.LightningNodeInfo(wantAsset)
 		if err == nil {
 			t.Fatal("want error but got no error")
 		}
-		if !strings.Contains(err.Error(), "server-side error") {
-			t.Fatalf("want server-side error but got `%s`", err.Error())
+		if !strings.Contains(err.Error(), "exchange error") {
+			t.Fatalf("want exchange error but got `%s`", err.Error())
 		}
 		checkRequest(t, backend.request)
 	})
@@ -919,7 +911,7 @@ func TestClient_LightningNodeInfo(t *testing.T) {
 			Testnet:            false,
 			Chains:             []string{"chain-1", "chain-2"},
 		}
-		backend := &mockBackend{
+		backend := &mockCore{
 			respJSON: `
 				{ "data": { "lightningInfo": {
 					"host": "host",
@@ -939,7 +931,7 @@ func TestClient_LightningNodeInfo(t *testing.T) {
 				} } }
 			`,
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		gotInfo, err := client.LightningNodeInfo(wantAsset)
 		if err != nil {
 			t.Fatalf("want no error but got `%s", err.Error())
@@ -968,11 +960,11 @@ func TestClient_LightningCreateInvoice(t *testing.T) {
 				wantVariables, got.Variables)
 		}
 	}
-	t.Run("when backend error", func(t *testing.T) {
-		backend := &mockBackend{
+	t.Run("when core error", func(t *testing.T) {
+		backend := &mockCore{
 			error: errors.New("fail"),
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		_, err := client.LightningCreateInvoice(wantAsset, wantAmount)
 		if err == nil {
 			t.Fatal("want error but got no error")
@@ -983,12 +975,12 @@ func TestClient_LightningCreateInvoice(t *testing.T) {
 		checkRequest(t, backend.request)
 	})
 	t.Run("when invalid response json", func(t *testing.T) {
-		backend := &mockBackend{
+		backend := &mockCore{
 			respJSON: `
 				{ "errors": 123, "data": "qwerty" }
 			`,
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		_, err := client.LightningCreateInvoice(wantAsset, wantAmount)
 		if err == nil {
 			t.Fatal("want error but got no error")
@@ -998,30 +990,30 @@ func TestClient_LightningCreateInvoice(t *testing.T) {
 		}
 		checkRequest(t, backend.request)
 	})
-	t.Run("when server-side error", func(t *testing.T) {
-		backend := &mockBackend{
+	t.Run("when exchange error", func(t *testing.T) {
+		backend := &mockCore{
 			respJSON: `
 				{ "errors": [{ "message": "some error" }] }
 			`,
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		_, err := client.LightningCreateInvoice(wantAsset, wantAmount)
 		if err == nil {
 			t.Fatal("want error but got no error")
 		}
-		if !strings.Contains(err.Error(), "server-side error") {
-			t.Fatalf("want server-side error but got `%s`", err.Error())
+		if !strings.Contains(err.Error(), "exchange error") {
+			t.Fatalf("want exchange error but got `%s`", err.Error())
 		}
 		checkRequest(t, backend.request)
 	})
 	t.Run("when valid response without errors", func(t *testing.T) {
 		wantInvoice := "some-invoice"
-		backend := &mockBackend{
+		backend := &mockCore{
 			respJSON: `
 				{ "data": { "generateLightningInvoice": "some-invoice" } }
 			`,
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		gotInvoice, err := client.LightningCreateInvoice(wantAsset,
 			wantAmount)
 		if err != nil {
@@ -1050,11 +1042,11 @@ func TestClient_LightningWithdraw(t *testing.T) {
 				wantVariables, got.Variables)
 		}
 	}
-	t.Run("when backend error", func(t *testing.T) {
-		backend := &mockBackend{
+	t.Run("when core error", func(t *testing.T) {
+		backend := &mockCore{
 			error: errors.New("fail"),
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		_, err := client.LightningWithdraw(wantAsset, wantInvoice)
 		if err == nil {
 			t.Fatal("want error but got no error")
@@ -1065,12 +1057,12 @@ func TestClient_LightningWithdraw(t *testing.T) {
 		checkRequest(t, backend.request)
 	})
 	t.Run("when invalid response json", func(t *testing.T) {
-		backend := &mockBackend{
+		backend := &mockCore{
 			respJSON: `
 				{ "errors": 123, "data": "qwerty" }
 			`,
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		_, err := client.LightningWithdraw(wantAsset, wantInvoice)
 		if err == nil {
 			t.Fatal("want error but got no error")
@@ -1080,19 +1072,19 @@ func TestClient_LightningWithdraw(t *testing.T) {
 		}
 		checkRequest(t, backend.request)
 	})
-	t.Run("when server-side error", func(t *testing.T) {
-		backend := &mockBackend{
+	t.Run("when exchange error", func(t *testing.T) {
+		backend := &mockCore{
 			respJSON: `
 				{ "errors": [{ "message": "some error" }] }
 			`,
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		_, err := client.LightningWithdraw(wantAsset, wantInvoice)
 		if err == nil {
 			t.Fatal("want error but got no error")
 		}
-		if !strings.Contains(err.Error(), "server-side error") {
-			t.Fatalf("want server-side error but got `%s`", err.Error())
+		if !strings.Contains(err.Error(), "exchange error") {
+			t.Fatalf("want exchange error but got `%s`", err.Error())
 		}
 		checkRequest(t, backend.request)
 	})
@@ -1100,14 +1092,14 @@ func TestClient_LightningWithdraw(t *testing.T) {
 		wantWithdrawal := Withdrawal{
 			PaymentID: "some-id",
 		}
-		backend := &mockBackend{
+		backend := &mockCore{
 			respJSON: `
 				{ "data": { "withdrawWithLightning": {
 					"paymentID": "some-id"
 				} } }
 			`,
 		}
-		client := &Client{backend: backend}
+		client := &Client{core: backend}
 		gotWithdrawal, err := client.LightningWithdraw(wantAsset, wantInvoice)
 		if err != nil {
 			t.Fatalf("want no error but got `%s", err.Error())
@@ -1123,9 +1115,9 @@ func TestClient_LightningWithdraw(t *testing.T) {
 	})
 }
 
-// mockBackend is client backend client mock implementation for testing
+// mockCore is client core client mock implementation for testing
 // purpose
-type mockBackend struct {
+type mockCore struct {
 
 	// request is last request passed to do() call
 	request request
@@ -1137,11 +1129,11 @@ type mockBackend struct {
 	error error
 }
 
-// do implements backend. Stores request and returns predefined respJSON
+// do implements core. Stores request and returns predefined respJSON
 // and error.
-func (b *mockBackend) do(r request) ([]byte, error) {
-	b.request = r
-	return []byte(b.respJSON), b.error
+func (c *mockCore) do(r request) ([]byte, error) {
+	c.request = r
+	return []byte(c.respJSON), c.error
 }
 
 func dec(f float64) decimal.Decimal {
