@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+
+	"github.com/bitlum/macaroon-application-auth"
+	"gopkg.in/macaroon.v2"
 )
 
 // core is client core which perform low level http request. Used for
@@ -21,8 +24,11 @@ type core interface {
 // graphQLCore is client core implementation used to perform authorized
 // http requests to exchange GraphQL server.
 type graphQLCore struct {
-	url       string
-	authToken string
+	url      string
+	macaroon *macaroon.Macaroon
+
+	// nonce is nonce counter used to protect client from replay-attack.
+	nonce int64
 }
 
 // do performs authorized GraphQL request to bitlum exchange service and
@@ -42,8 +48,32 @@ func (c *graphQLCore) do(r request) ([]byte, error) {
 			err.Error())
 	}
 
+	// Each request should have increased nonce to protect client from
+	// replay-attack.
+	c.nonce++
+
+	// Adding nonce to protect client from replay-attack.
+	m, err := auth.AddNonce(c.macaroon, c.nonce)
+	if err != nil {
+		return nil, errors.New(
+			"failed to add nonce to macaroon: " + err.Error())
+	}
+
+	// Adding current time to protect client from replay-attack.
+	m, err = auth.AddCurrentTime(m)
+	if err != nil {
+		return nil, errors.New(
+			"failed to add current time to macaroon: " + err.Error())
+	}
+
+	token, err := auth.EncodeMacaroon(m)
+	if err != nil {
+		return nil, errors.New(
+			"failed to encode macaroon: " + err.Error())
+	}
+
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+c.authToken)
+	httpReq.Header.Set("Authorization", "Macaroon "+token)
 
 	httpResp, err := (&http.Client{}).Do(httpReq)
 	if err != nil {

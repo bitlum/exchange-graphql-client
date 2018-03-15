@@ -5,10 +5,14 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
+	"github.com/bitlum/macaroon-application-auth"
 	"github.com/shopspring/decimal"
 )
+
+const macaroonHexEncoded = "0201066269746c756d0204811f79090002166469736f70732069737375655f6170695f746f6b656e00020f7573657220323136363332333436350000062023ffa8c3ba9fa8a8cda6171a313fcfdfc98b52410f03685c448583cf1be01d04"
 
 func Test_graphQLCoreImplementsCore(t *testing.T) {
 	// should error in compile time if not implements
@@ -117,9 +121,13 @@ func Test_responseBase_Error(t *testing.T) {
 func Test_graphQLCore_do(t *testing.T) {
 
 	const (
-		authToken = "test-auth-token"
-		path      = "/query"
+		path = "/query"
 	)
+
+	mac, err := auth.DecodeMacaroon(macaroonHexEncoded)
+	if err != nil {
+		t.Fatalf("failed to decode macaroon: %v", err)
+	}
 
 	checkMethod := func(t *testing.T, s *mockExchangeServer) {
 		const want = "POST"
@@ -148,10 +156,12 @@ func Test_graphQLCore_do(t *testing.T) {
 				gotContentType, wantContentType)
 		}
 
+		wantAuthStartWith := "Macaroon "
 		gotAuthorization := h.Get("Authorization")
-		if gotAuthorization != "Bearer "+authToken {
-			t.Errorf("wrong Authorization header: got `%s` but want `%s`",
-				gotContentType, wantContentType)
+		if strings.Index(gotAuthorization, wantAuthStartWith) != 0 {
+			t.Errorf("wrong Authorization header: got `%s` but want"+
+				" to start with `%s`",
+				gotAuthorization, wantAuthStartWith)
 		}
 	}
 
@@ -167,12 +177,12 @@ func Test_graphQLCore_do(t *testing.T) {
 		}
 	}
 
-	t.Run("when core is down", func(t *testing.T) {
+	t.Run("when exchange is down", func(t *testing.T) {
 		s := newMockBackendServer()
 		s.stop()
 		c := &graphQLCore{
-			url:       s.url() + path,
-			authToken: authToken,
+			url:      s.url() + path,
+			macaroon: mac,
 		}
 		_, err := c.do(request{
 			Query: "query",
@@ -189,8 +199,8 @@ func Test_graphQLCore_do(t *testing.T) {
 		defer s.stop()
 		s.response.code = 301
 		c := &graphQLCore{
-			url:       s.url() + path,
-			authToken: authToken,
+			url:      s.url() + path,
+			macaroon: mac,
 		}
 		req := request{
 			Query: "query",
@@ -213,8 +223,8 @@ func Test_graphQLCore_do(t *testing.T) {
 		s.response.code = 200
 		s.response.body = "response body"
 		c := &graphQLCore{
-			url:       s.url() + path,
-			authToken: authToken,
+			url:      s.url() + path,
+			macaroon: mac,
 		}
 		req := request{
 			Query: "query",

@@ -13,24 +13,26 @@ import (
 
 func TestNewExchange(t *testing.T) {
 	const (
-		wantURL       = "http://test.wantURL"
-		wantAuthToken = "test-auth-token"
+		wantURL = "http://test.wantURL"
 	)
-	client := NewClient(wantURL, wantAuthToken)
+
+	client, err := NewClient(wantURL, macaroonHexEncoded)
+	if err != nil {
+		t.Fatalf("want NewClient no error but got `%v`", err)
+	}
 	if client.core == nil {
 		t.Fatal("want not nil core")
 	}
-	backend, isRealBackend := client.core.(*graphQLCore)
-	if !isRealBackend {
-		t.Fatal("want client.core is core")
+	core, isGraphQLCore := client.core.(*graphQLCore)
+	if !isGraphQLCore {
+		t.Fatal("want client.core is graphQLCore")
 	}
-	if backend.url != wantURL {
+	if core.url != wantURL {
 		t.Fatalf("want client.core.wantURL is `%s` but got `%s`",
-			wantURL, backend.url)
+			wantURL, core.url)
 	}
-	if backend.authToken != wantAuthToken {
-		t.Fatalf("want client.core.wantAuthToken is `%s` but got `%s`",
-			wantAuthToken, backend.authToken)
+	if core.macaroon == nil {
+		t.Fatal("want not nil client.core.macaroon")
 	}
 }
 
