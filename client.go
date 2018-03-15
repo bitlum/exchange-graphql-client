@@ -13,12 +13,12 @@ type Client struct {
 }
 
 // NewClient create new client for bitlum exchange on specified URL
-// with macaroon authorization token.
-func NewClient(url string, macaroonAuthToken string) *Client {
+// with authorization token.
+func NewClient(url string, authToken string) *Client {
 	return &Client{
 		core: &graphQLCore{
 			url:       url,
-			authToken: macaroonAuthToken,
+			authToken: authToken,
 		},
 	}
 }
@@ -207,7 +207,7 @@ func (c *Client) Depth(market string) (Depth, error) {
 	}
 
 	if err := json.Unmarshal(respJSON, &resp); err != nil {
-		return depth, errors.New("failed to json.Unmarsh	al resp: " +
+		return depth, errors.New("failed to json.Unmarshal resp: " +
 			err.Error())
 	}
 
