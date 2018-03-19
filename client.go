@@ -14,9 +14,9 @@ type Client struct {
 }
 
 // NewClient create new client for bitlum exchange on specified URL
-// with hex encoded binary macaroon. Will error if macaroon decoding
-// errors.
-func NewClient(url string, macaroon string) (*Client, error) {
+// with either JWT token or hex encoded binary macaroon.
+// Will error if macaroon decoding errors.
+func NewClient(url string, macaroon string, jwt string) (*Client, error) {
 	m, err := auth.DecodeMacaroon(macaroon)
 	if err != nil {
 		return nil, err
@@ -25,6 +25,7 @@ func NewClient(url string, macaroon string) (*Client, error) {
 		core: &graphQLCore{
 			url:      url,
 			macaroon: m,
+			jwt:      jwt,
 		},
 	}, nil
 }
@@ -42,7 +43,6 @@ func (c *Client) Markets() []string {
 // UserID returns exchange user ID on behalf which all
 // exchange operations are performing.
 func (c *Client) UserID() (string, error) {
-
 	var req request
 
 	req.Query = `
@@ -391,18 +391,14 @@ type createOrderRequestVariables struct {
 	Amount decimal.Decimal `json:"amount"`
 }
 
-// CreateOrder creates bid order on market. Bid order means that
-// left asset is used to buy right asset. E.g. in market BTCETH this
-// method creates an order to buy ETH using BTC.
-func (c *Client) CreateOrder(market string,
-	amount decimal.Decimal) (Order, error) {
+func (c *Client) createOrder(market string, amount decimal.Decimal, side string) (Order, error) {
 
 	var req request
 
 	req.Query = `
 		mutation CreateMarketOrder($market: Market!, $amount: String!) {
   			createMarketOrder(amount: $amount, market: $market, 
-side: bid) {
+side: ` + side + `) {
     			id
     			status
     			amount
@@ -442,6 +438,28 @@ side: bid) {
 	}
 
 	return resp.Data.Order, nil
+}
+
+// CreateOrder is an alias of CreateOrderBid
+func (c *Client) CreateOrder(market string,
+	amount decimal.Decimal) (Order, error) {
+	return c.CreateOrderBid(market, amount)
+}
+
+// CreateOrderAsc creates asc order on market. Asc order means that
+// left asset is used to sell right asset. E.g. in market BTCETH this
+// method creates an order to sell ETH for BTC.
+func (c *Client) CreateOrderAsk(market string,
+	amount decimal.Decimal) (Order, error) {
+	return c.createOrder(market, amount, "ask")
+}
+
+// CreateOrderBid creates bid order on market. Bid order means that
+// left asset is used to buy right asset. E.g. in market BTCETH this
+// method creates an order to buy ETH using BTC.
+func (c *Client) CreateOrderBid(market string,
+	amount decimal.Decimal) (Order, error) {
+	return c.createOrder(market, amount, "bid")
 
 }
 

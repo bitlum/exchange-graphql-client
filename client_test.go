@@ -16,7 +16,7 @@ func TestNewExchange(t *testing.T) {
 		wantURL = "http://test.wantURL"
 	)
 
-	client, err := NewClient(wantURL, macaroonHexEncoded)
+	client, err := NewClient(wantURL, macaroonHexEncoded, "")
 	if err != nil {
 		t.Fatalf("want NewClient no error but got `%v`", err)
 	}
