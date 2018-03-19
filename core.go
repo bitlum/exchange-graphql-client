@@ -36,7 +36,6 @@ type graphQLCore struct {
 // do performs authorized GraphQL request to bitlum exchange service and
 // returns response body.
 func (c *graphQLCore) do(r request) ([]byte, error) {
-
 	reqJSON, err := json.Marshal(r)
 	if err != nil {
 		return nil, errors.New("failed to json.Marshal request: " +

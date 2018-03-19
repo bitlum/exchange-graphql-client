@@ -6,6 +6,7 @@ import (
 
 	"github.com/bitlum/macaroon-application-auth"
 	"github.com/shopspring/decimal"
+	gomacaroon "gopkg.in/macaroon.v2"
 )
 
 // Client is the http://exchange.bitlum.io exchange client.
@@ -17,9 +18,14 @@ type Client struct {
 // with either JWT token or hex encoded binary macaroon.
 // Will error if macaroon decoding errors.
 func NewClient(url string, macaroon string, jwt string) (*Client, error) {
-	m, err := auth.DecodeMacaroon(macaroon)
-	if err != nil {
-		return nil, err
+	var m *gomacaroon.Macaroon
+
+	if macaroon != "" {
+		var err error
+		m, err = auth.DecodeMacaroon(macaroon)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return &Client{
 		core: &graphQLCore{
