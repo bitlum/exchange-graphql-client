@@ -880,3 +880,38 @@ func (c *Client) Accounts(assets []string) ([]Account, error) {
 
 	return resp.Data.Accounts, nil
 }
+
+// TODO(sergey.d) Add comment
+func (c *Client) IssueApiToken() (string, error) {
+
+	var req request
+
+	req.Query = `
+		query { issueApiToken }
+	`
+
+	resp := struct {
+		responseBase
+		Data struct {
+			IssueApiToken string `json:"issueApiToken"`
+		}
+	}{}
+
+	respJSON, err := c.do(req)
+	if err != nil {
+		return "",
+			errors.New("unable to do request: " + err.Error())
+	}
+
+	if err := json.Unmarshal(respJSON, &resp); err != nil {
+		return "",
+			errors.New("unable to json.Unmarshal resp: " + err.Error())
+	}
+
+	if err := resp.Error(); err != nil {
+		return resp.Data.IssueApiToken,
+			errors.New("exchange error: " + err.Error())
+	}
+
+	return resp.Data.IssueApiToken, nil
+}
