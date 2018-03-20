@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"time"
 
 	"github.com/bitlum/macaroon-application-auth"
 	"gopkg.in/macaroon.v2"
@@ -26,9 +27,6 @@ type core interface {
 type graphQLCore struct {
 	url      string
 	macaroon *macaroon.Macaroon
-
-	// nonce is nonce counter used to protect client from replay-attack.
-	nonce int64
 
 	jwt string
 }
@@ -50,12 +48,8 @@ func (c *graphQLCore) do(r request) ([]byte, error) {
 	}
 
 	if c.jwt == "" {
-		// Each request should have increased nonce to protect client from
-		// replay-attack.
-		c.nonce++
-
 		// Adding nonce to protect client from replay-attack.
-		m, err := auth.AddNonce(c.macaroon, c.nonce)
+		m, err := auth.AddNonce(c.macaroon, time.Now().UnixNano())
 		if err != nil {
 			return nil, errors.New(
 				"failed to add nonce to macaroon: " + err.Error())
