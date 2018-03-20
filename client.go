@@ -915,3 +915,108 @@ func (c *Client) IssueApiToken() (string, error) {
 
 	return resp.Data.IssueApiToken, nil
 }
+
+// MarketsRequest is a query variables used in request
+// markets statuses
+type MarketsRequest struct {
+	Markets []string `json:"markets"`
+}
+
+
+// TODO(sergey.d) Add comment
+type MarketStatus struct {
+	// TODO(sergey.d) Add comment
+	Market     string
+
+	// TODO(sergey.d) Add comment
+	Stock      string
+
+	// TODO(sergey.d) Add comment
+	Money      string
+
+	// TODO(sergey.d) Add comment
+	Open       decimal.Decimal
+
+	// TODO(sergey.d) Add comment
+	Close      decimal.Decimal
+
+	// TODO(sergey.d) Add comment
+	High       decimal.Decimal
+
+	// TODO(sergey.d) Add comment
+	Last       decimal.Decimal
+
+	// TODO(sergey.d) Add comment
+	Low        decimal.Decimal
+
+	// TODO(sergey.d) Add comment
+	Volume     decimal.Decimal
+
+	// TODO(sergey.d) Add comment
+	ChangeLast decimal.Decimal
+
+	// TODO(sergey.d) Add comment
+	ChangeHigh decimal.Decimal
+
+	// TODO(sergey.d) Add comment
+	ChangeLow  decimal.Decimal
+
+	// TODO(sergey.d) Add comment
+	BestAsk    decimal.Decimal
+
+	// TODO(sergey.d) Add comment
+	BestBid    decimal.Decimal
+}
+
+// TODO(sergey.d) Add comment
+func (c *Client) Markets(markets MarketsRequest) ([]MarketStatus, error) {
+
+	var req request
+
+	req.Query = `
+		query Markets($markets: [Market!]!) {
+			markets (markets: $markets){
+				market
+				stock
+				money
+				open
+				close
+				high
+				last
+				low
+				volume
+				changeLast
+				changeHigh
+				changeLow
+				bestAsk
+				bestBid
+  			}
+		}
+	`
+
+	req.Variables = markets
+
+	respJSON, err := c.do(req)
+	if err != nil {
+		return []MarketStatus{},
+			errors.New("failed to do request: " + err.Error())
+	}
+
+	resp := struct {
+		responseBase
+		Data struct {
+			Markets []MarketStatus `json:"markets"`
+		}
+	}{}
+	if err := json.Unmarshal(respJSON, &resp); err != nil {
+		return []MarketStatus{},
+			errors.New("failed to json.Unmarshal resp: " + err.Error())
+	}
+
+	if err := resp.Error(); err != nil {
+		return resp.Data.Markets,
+			errors.New("exchange error: " + err.Error())
+	}
+
+	return resp.Data.Markets, nil
+}
