@@ -49,7 +49,6 @@ func (c *Client) SupportedMarkets() []string {
 // UserID returns exchange user ID on behalf which all
 // exchange operations are performing.
 func (c *Client) UserID() (string, error) {
-
 	var req request
 
 	req.Query = `
@@ -396,20 +395,16 @@ func (c *Client) Order(id int64) (Order, error) {
 type createOrderRequestVariables struct {
 	Market string          `json:"market"`
 	Amount decimal.Decimal `json:"amount"`
+	Side   string          `json:"side"`
 }
 
-// CreateOrder creates bid order on market. Bid order means that
-// left asset is used to buy right asset. E.g. in market BTCETH this
-// method creates an order to buy ETH using BTC.
-func (c *Client) CreateOrder(market string,
-	amount decimal.Decimal) (Order, error) {
+func (c *Client) createOrder(market string, amount decimal.Decimal, side string) (Order, error) {
 
 	var req request
 
 	req.Query = `
-		mutation CreateMarketOrder($market: Market!, $amount: String!) {
-  			createMarketOrder(amount: $amount, market: $market, 
-side: bid) {
+	mutation CreateMarketOrder($market: Market!, $amount: String!, $side: MarketSide!) {
+  			createMarketOrder(amount: $amount, market: $market, side: $side) {
     			id
     			status
     			amount
@@ -424,6 +419,7 @@ side: bid) {
 	req.Variables = createOrderRequestVariables{
 		Market: market,
 		Amount: amount,
+		Side:   side,
 	}
 
 	resp := struct {
@@ -449,6 +445,28 @@ side: bid) {
 	}
 
 	return resp.Data.Order, nil
+}
+
+// CreateOrder is an alias of CreateOrderBid
+func (c *Client) CreateOrder(market string,
+	amount decimal.Decimal) (Order, error) {
+	return c.CreateOrderBid(market, amount)
+}
+
+// CreateOrderAsk creates ask order on market. Asc order means that
+// left asset of the market is used to sell right asset. E.g. in
+// market BTCETH this method creates an order to sell ETH for BTC.
+func (c *Client) CreateOrderAsk(market string,
+	amount decimal.Decimal) (Order, error) {
+	return c.createOrder(market, amount, "ask")
+}
+
+// CreateOrderBid creates bid order on market. Bid order means that
+// left asset of the market is used to buy right asset.
+// E.g. in market BTCETH this method creates an order to buy ETH using BTC.
+func (c *Client) CreateOrderBid(market string,
+	amount decimal.Decimal) (Order, error) {
+	return c.createOrder(market, amount, "bid")
 
 }
 
