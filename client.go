@@ -37,7 +37,7 @@ func NewClient(url string, macaroon string, jwt string) (*Client, error) {
 }
 
 // Markets return markets supported by exchange
-func (c *Client) Markets() []string {
+func (c *Client) SupportedMarkets() []string {
 	return []string{
 		"BTCETH",
 		"BTCBCH",
