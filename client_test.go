@@ -43,7 +43,7 @@ func TestClient_Markets(t *testing.T) {
 		"BTCDASH",
 		"BTCLTC",
 	}
-	got := (&Client{}).Markets()
+	got := (&Client{}).SupportedMarkets()
 	if !reflect.DeepEqual(want, got) {
 		t.Errorf("want `%v` markets but got `%v`", want, got)
 	}
