@@ -46,6 +46,49 @@ func (c *Client) SupportedMarkets() []string {
 	}
 }
 
+type Me struct {
+	ID    string
+	Email string
+}
+
+// Me returns exchange user info on behalf which all
+// exchange operations are performing.
+func (c *Client) Me() (Me, error) {
+	var req request
+
+	req.Query = `
+		query Me {
+			me {
+			  id
+			  email
+			}
+		}
+	`
+
+	resp := struct {
+		responseBase
+		Data struct {
+			Me Me
+		}
+	}{}
+
+	respJSON, err := c.do(req)
+	if err != nil {
+		return Me{}, errors.New("failed to do request: " + err.Error())
+	}
+
+	if err := json.Unmarshal(respJSON, &resp); err != nil {
+		return Me{}, errors.New("failed to json.Unmarshal resp: " +
+			err.Error())
+	}
+
+	if err := resp.Error(); err != nil {
+		return Me{}, errors.New("exchange error: " + err.Error())
+	}
+
+	return resp.Data.Me, nil
+}
+
 // UserID returns exchange user ID on behalf which all
 // exchange operations are performing.
 func (c *Client) UserID() (string, error) {
@@ -178,11 +221,13 @@ type Depth struct {
 // depthRequestVariables is a query variables used in request
 // in client Depth method.
 type depthRequestVariables struct {
-	Market string `json:"market"`
+	Market   string  `json:"market"`
+	Limit    uint    `json:"limit"`
+	Interval float64 `json:"interval"`
 }
 
 // Depth returns limited lists of asks and bids in benefit order.
-func (c *Client) Depth(market string) (Depth, error) {
+func (c *Client) Depth(market string, limit uint, interval float64) (Depth, error) {
 
 	var (
 		depth Depth
@@ -190,8 +235,8 @@ func (c *Client) Depth(market string) (Depth, error) {
 	)
 
 	req.Query = `
-		query GetBestAskBid($market: Market!) {
-  			depth(market: $market, limit: 50, interval: 0.00000001) {
+	query GetBestAskBid($market: Market!, $limit: Int, $interval: Float) {
+  			depth(market: $market, limit: $limit, interval: $interval) {
     			asks {
       				price
       				volume
@@ -204,7 +249,7 @@ func (c *Client) Depth(market string) (Depth, error) {
 		}
 	`
 
-	req.Variables = depthRequestVariables{market}
+	req.Variables = depthRequestVariables{market, limit, interval}
 
 	resp := struct {
 		responseBase
@@ -920,37 +965,37 @@ func (c *Client) IssueApiToken() (string, error) {
 // markets statuses
 type MarketsRequest struct {
 	Markets []string `json:"markets"`
+	Period  int32    `json:"period"`
 }
 
-
-// TODO(sergey.d) Add comment
+// MarketStatus contains the information about the market
 type MarketStatus struct {
 	// TODO(sergey.d) Add comment
-	Market     string
+	Market string
 
 	// TODO(sergey.d) Add comment
-	Stock      string
+	Stock string
 
 	// TODO(sergey.d) Add comment
-	Money      string
+	Money string
 
 	// TODO(sergey.d) Add comment
-	Open       decimal.Decimal
+	Open decimal.Decimal
 
 	// TODO(sergey.d) Add comment
-	Close      decimal.Decimal
+	Close decimal.Decimal
 
 	// TODO(sergey.d) Add comment
-	High       decimal.Decimal
+	High decimal.Decimal
 
 	// TODO(sergey.d) Add comment
-	Last       decimal.Decimal
+	Last decimal.Decimal
 
 	// TODO(sergey.d) Add comment
-	Low        decimal.Decimal
+	Low decimal.Decimal
 
 	// TODO(sergey.d) Add comment
-	Volume     decimal.Decimal
+	Volume decimal.Decimal
 
 	// TODO(sergey.d) Add comment
 	ChangeLast decimal.Decimal
@@ -959,23 +1004,23 @@ type MarketStatus struct {
 	ChangeHigh decimal.Decimal
 
 	// TODO(sergey.d) Add comment
-	ChangeLow  decimal.Decimal
+	ChangeLow decimal.Decimal
 
 	// TODO(sergey.d) Add comment
-	BestAsk    decimal.Decimal
+	BestAsk decimal.Decimal
 
 	// TODO(sergey.d) Add comment
-	BestBid    decimal.Decimal
+	BestBid decimal.Decimal
 }
 
-// TODO(sergey.d) Add comment
-func (c *Client) Markets(markets MarketsRequest) ([]MarketStatus, error) {
+// Markets returns information
+func (c *Client) Markets(markets []string, period int32) ([]MarketStatus, error) {
 
 	var req request
 
 	req.Query = `
-		query Markets($markets: [Market!]!) {
-			markets (markets: $markets){
+	query Markets($markets: [Market!]!, $period: Int) {
+		markets (markets: $markets, period: $period){
 				market
 				stock
 				money
@@ -994,7 +1039,10 @@ func (c *Client) Markets(markets MarketsRequest) ([]MarketStatus, error) {
 		}
 	`
 
-	req.Variables = markets
+	req.Variables = MarketsRequest{
+		markets,
+		period,
+	}
 
 	respJSON, err := c.do(req)
 	if err != nil {
@@ -1019,4 +1067,77 @@ func (c *Client) Markets(markets MarketsRequest) ([]MarketStatus, error) {
 	}
 
 	return resp.Data.Markets, nil
+}
+
+// DealsRequest is a query variables used in request deals
+type DealsRequest struct {
+	Markets []string `json:"markets"`
+	Limit   int32    `json:"limit"`
+}
+
+// MarketDeal contains the information about the completed deal
+type MarketDeal struct {
+	// TODO(sergey.d) Add comment
+	ID int32
+
+	// TODO(sergey.d) Add comment
+	Market string
+
+	// TODO(sergey.d) Add comment
+	Time float32
+
+	// TODO(sergey.d) Add comment
+	Amount decimal.Decimal
+
+	// TODO(sergey.d) Add comment
+	Price decimal.Decimal
+
+	// TODO(sergey.d) Add comment
+	Type string
+}
+
+func (c *Client) Deals(markets []string, limit int32) ([]MarketDeal, error) {
+	var req request
+
+	req.Query = `
+	query Deals ($markets: [Market!]!, $limit: Int) {
+		deals (markets: $markets, limit: $limit){
+			    id
+				market
+				time
+				amount
+				price
+				type
+  			}
+		}
+	`
+
+	req.Variables = DealsRequest{
+		markets,
+		limit,
+	}
+
+	respJSON, err := c.do(req)
+	if err != nil {
+		return []MarketDeal{},
+			errors.New("failed to do request: " + err.Error())
+	}
+
+	resp := struct {
+		responseBase
+		Data struct {
+			Deals []MarketDeal `json:"deals"`
+		}
+	}{}
+	if err := json.Unmarshal(respJSON, &resp); err != nil {
+		return []MarketDeal{},
+			errors.New("failed to json.Unmarshal resp: " + err.Error())
+	}
+
+	if err := resp.Error(); err != nil {
+		return resp.Data.Deals,
+			errors.New("exchange error: " + err.Error())
+	}
+
+	return resp.Data.Deals, nil
 }
