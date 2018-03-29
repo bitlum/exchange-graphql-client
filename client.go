@@ -9,14 +9,14 @@ import (
 	gomacaroon "gopkg.in/macaroon.v2"
 )
 
-// Client is the http://exchange.bitlum.io exchange client.
+// Client is the http://exchange.bitlum.io exchange client which wraps the raw GraphQL API.
 type Client struct {
 	core
 }
 
-// NewClient create new client for bitlum exchange on specified URL
+// NewClient creates new client for bitlum exchange on specified URL
 // with either JWT token or hex encoded binary macaroon.
-// Will error if macaroon decoding errors.
+// It returns an error if the macaroon can not be decoded.
 func NewClient(url string, macaroon string, jwt string) (*Client, error) {
 	var m *gomacaroon.Macaroon
 
@@ -37,6 +37,7 @@ func NewClient(url string, macaroon string, jwt string) (*Client, error) {
 }
 
 // Markets return markets supported by exchange
+// TODO: the list should be requested from the backend
 func (c *Client) SupportedMarkets() []string {
 	return []string{
 		"BTCETH",
@@ -46,12 +47,16 @@ func (c *Client) SupportedMarkets() []string {
 	}
 }
 
+// Me is a structure to hold the result of Me query
 type Me struct {
-	ID    string
+	// ID is User's ID
+	ID string
+	// Email is an email used during the registration of the user
+	// or an email of the user who requested macaroon token
 	Email string
 }
 
-// Me returns exchange user info on behalf which all
+// Me returns user info on behalf which all
 // exchange operations are performing.
 func (c *Client) Me() (Me, error) {
 	var req request
@@ -129,6 +134,7 @@ func (c *Client) UserID() (string, error) {
 }
 
 // Ticker is stock exchange market ticker with information about prices.
+// TODO: obsolete, should be removed as soon as ZigZag switch to use Market instead
 type Ticker struct {
 	// Market is a stock exchange market, e.g. BTCETH.
 	Market string
@@ -141,11 +147,13 @@ type Ticker struct {
 
 // tickersRequestVariables is a query variables used in request
 // in client Tickers method.
+// TODO: obsolete, should be removed as soon as ZigZag switch to use Market instead
 type tickersRequestVariables struct {
 	Markets []string `json:"markets"`
 }
 
 // Ticker returns summary information about last 24 hours of each market
+// TODO: obsolete, should be removed as soon as ZigZag switch to use Market instead
 func (c *Client) Tickers(markets []string) ([]Ticker, error) {
 
 	if len(markets) == 0 {
@@ -698,7 +706,6 @@ func (c *Client) LightningNodeInfo(asset string) (LightningNodeInfo,
 	error) {
 
 	var req request
-
 	req.Query = `
 		query LightningNodeInfo($asset: Asset!) {
 			lightningInfo(asset: $asset)   {
@@ -861,24 +868,26 @@ type AccountsRequest struct {
 	Assets []string `json:"assets"`
 }
 
-// TODO(sergey.d) Add comment
+// Account struct describes the current balance of the exchange user by
+// every asset he owns
 type Account struct {
-	// TODO(sergey.d) Add comment
+	// A name of asset. Currently: BTC, BCH, ETH, LTC, DASH
 	Asset string
 
-	// TODO(sergey.d) Add comment
+	// Address on which funds has to be sent to be deposited on the account.
+	// If returned null than address has to be created first
 	Address string
 
-	// TODO(sergey.d) Add comment
+	// Available is the funds which can be used in trading.
 	Available decimal.Decimal
 
-	// TODO(sergey.d) Add comment
+	// Estimation is the estimated number of dollars which corresponds to this asset.
 	Estimation decimal.Decimal
 
-	// TODO(sergey.d) Add comment
+	// Freezed is the funds which currently occupied in trades.
 	Freezed decimal.Decimal
 
-	// TODO(sergey.d) Add comment
+	// Pending is the information which related to the blockchain, for example: how much funds are waiting to be approved, before to be enrolled in the account.
 	Pending decimal.Decimal
 }
 
@@ -926,7 +935,8 @@ func (c *Client) Accounts(assets []string) ([]Account, error) {
 	return resp.Data.Accounts, nil
 }
 
-// TODO(sergey.d) Add comment
+// IssueApiToken exchanges JWT User's token with the third-party applciations token.
+// The application token is hex-encoded binary representation of the Macaroon bearer
 func (c *Client) IssueApiToken() (string, error) {
 
 	var req request
@@ -968,52 +978,55 @@ type MarketsRequest struct {
 	Period  int32    `json:"period"`
 }
 
-// MarketStatus contains the information about the market
+// MarketStatus represent the information about market the market by the given period of time.
 type MarketStatus struct {
-	// TODO(sergey.d) Add comment
+	// Market is a pair of assets to be exchanged with each other
 	Market string
 
-	// TODO(sergey.d) Add comment
+	// Stock is a right pair of a market. It is an asset to be sold in case of ask
+	// order and to be bought if a bid order
 	Stock string
 
-	// TODO(sergey.d) Add comment
+	// Money is a left pair of a market. It is an asset to be bought in case of ask
+	// order and to be sold if a bid order
 	Money string
 
-	// TODO(sergey.d) Add comment
+	// The opening price is the price at which a stok first trades upon the opening
+	// of an exchange on a given period
 	Open decimal.Decimal
 
-	// TODO(sergey.d) Add comment
+	// The closing price is the final price at which a stok is traded on a given period
 	Close decimal.Decimal
 
-	// TODO(sergey.d) Add comment
+	// The high price is the highest price at which a stok was traded within a given period
 	High decimal.Decimal
 
-	// TODO(sergey.d) Add comment
+	// The last price is the price at which a most recent order was executed upon the given period
 	Last decimal.Decimal
 
-	// TODO(sergey.d) Add comment
+	// The low price is the lowest price at which a stok was traded within a given period
 	Low decimal.Decimal
 
-	// TODO(sergey.d) Add comment
+	// Volume is the amount of stock traded during a given period of time. The volume is estimated in market money.
 	Volume decimal.Decimal
 
-	// TODO(sergey.d) Add comment
+	// ChangeLast is the differnce between Open and Last values measured in percents
 	ChangeLast decimal.Decimal
 
-	// TODO(sergey.d) Add comment
+	// ChangeHigh is the differnce between Open and Last values measured in percents
 	ChangeHigh decimal.Decimal
 
-	// TODO(sergey.d) Add comment
+	// ChangeLow is the differnce between Open and Last values measured in percents
 	ChangeLow decimal.Decimal
 
-	// TODO(sergey.d) Add comment
+	// BestAsk is the lowest price the stock may be bought right now
 	BestAsk decimal.Decimal
 
-	// TODO(sergey.d) Add comment
+	// BestBid is the highes price the stock may be sold right now
 	BestBid decimal.Decimal
 }
 
-// Markets returns information
+// Markets reporst the statuses (see MarketStatus) of the markets for the given period
 func (c *Client) Markets(markets []string, period int32) ([]MarketStatus, error) {
 
 	var req request
@@ -1069,33 +1082,36 @@ func (c *Client) Markets(markets []string, period int32) ([]MarketStatus, error)
 	return resp.Data.Markets, nil
 }
 
-// DealsRequest is a query variables used in request deals
+// DealsRequest is a query variable used in the Deal query
 type DealsRequest struct {
+	// List of markets for which to return completed deals
 	Markets []string `json:"markets"`
-	Limit   int32    `json:"limit"`
+	// A number of the deals to return
+	Limit int32 `json:"limit"`
 }
 
-// MarketDeal contains the information about the completed deal
+// MarketDeal is a structure to hold result of the Deal query
 type MarketDeal struct {
-	// TODO(sergey.d) Add comment
+	// ID of a deal
 	ID int32
 
-	// TODO(sergey.d) Add comment
+	// Market the deal was closed on
 	Market string
 
-	// TODO(sergey.d) Add comment
+	// A time of a deal
 	Time float32
 
-	// TODO(sergey.d) Add comment
+	// Total amount of money spent to close the deal
 	Amount decimal.Decimal
 
-	// TODO(sergey.d) Add comment
+	// A price of stocks used to close the deal
 	Price decimal.Decimal
 
-	// TODO(sergey.d) Add comment
+	// Type is may be "ask" or "bid"
 	Type string
 }
 
+// Deals returns the result of orders matching with other users's orders. When users opposite orders have the same ask and bid prices their orderders considired to be appropriate for matching , the result of this matching is called deal.
 func (c *Client) Deals(markets []string, limit int32) ([]MarketDeal, error) {
 	var req request
 
