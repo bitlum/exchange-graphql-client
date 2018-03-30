@@ -868,6 +868,30 @@ type AccountsRequest struct {
 	Assets []string `json:"assets"`
 }
 
+// PendingTransaction holds the information which related to the blockchain
+type PendingTransaction struct {
+	// ConfirmationsLeft is the number of the blockchain blocks needed to be created after the
+	// current one has been mined in order to treat it as "confirmed"
+	ConfirmationsLeft int `json:"confirmationsLeft"`
+	// ConfirmationsLeft is the number of the blockchain blocks created after the
+	// current one has been mined
+	Confirmations int `json:"confirmations"`
+	// Blockchain address to withdraw to or deposit from
+	Address string `json:"address"`
+	// Amount of the transaction
+	Amount string `json:"amount"`
+	// ID of the blockchain transaction
+	TxID string `json:"txid"`
+}
+
+// PendingInfo holds the information which related to the blockchain, for example: how much funds are waiting to be approved, before to be enrolled in the account.
+type PendingInfo struct {
+	// Amount is the total amount of all the pending transactions
+	Amount decimal.Decimal `json:"amount"`
+	// Transactions waiting in the pending status
+	Transactions []PendingTransaction `json:"transactions"`
+}
+
 // Account struct describes the current balance of the exchange user by
 // every asset he owns
 type Account struct {
@@ -888,7 +912,7 @@ type Account struct {
 	Freezed decimal.Decimal
 
 	// Pending is the information which related to the blockchain, for example: how much funds are waiting to be approved, before to be enrolled in the account.
-	Pending decimal.Decimal
+	Pending PendingInfo
 }
 
 // Accounts shows balances for the assets owned by loggedin user
@@ -900,7 +924,7 @@ func (c *Client) Accounts(assets []string) ([]Account, error) {
 	req.Query = `
 		query Accounts($assets: [Asset!]!) {
   			accounts( assets: $assets) {
-				asset, address, available, estimation, freezed
+				asset, address, available, estimation, freezed, pending {amount, transactions {confirmationsLeft, confirmations, address, amount, txid }}
   			}
 		}
 	`
