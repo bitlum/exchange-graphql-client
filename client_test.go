@@ -226,7 +226,7 @@ func TestClient_Depth(t *testing.T) {
 	wantMarket := "BTCETH"
 	checkRequest := func(t *testing.T, got request) {
 		// TODO (dimuls): validate request.Query
-		wantVariables := depthRequestVariables{wantMarket}
+		wantVariables := depthRequestVariables{Market: wantMarket}
 		if !reflect.DeepEqual(wantVariables, got.Variables) {
 			t.Errorf("want variables `%#v` but got `%#v`",
 				wantVariables, got.Variables)
@@ -237,7 +237,7 @@ func TestClient_Depth(t *testing.T) {
 			error: errors.New("fail"),
 		}
 		client := &Client{core: backend}
-		_, err := client.Depth(wantMarket)
+		_, err := client.Depth(wantMarket, 0, 0)
 		if err == nil {
 			t.Fatal("want error but got no error")
 		}
@@ -253,7 +253,7 @@ func TestClient_Depth(t *testing.T) {
 			`,
 		}
 		client := &Client{core: backend}
-		_, err := client.Depth(wantMarket)
+		_, err := client.Depth(wantMarket, 0, 0)
 		if err == nil {
 			t.Fatal("want error but got no error")
 		}
@@ -269,7 +269,7 @@ func TestClient_Depth(t *testing.T) {
 			`,
 		}
 		client := &Client{core: backend}
-		_, err := client.Depth(wantMarket)
+		_, err := client.Depth(wantMarket, 0, 0)
 		if err == nil {
 			t.Fatal("want error but got no error")
 		}
@@ -299,7 +299,7 @@ func TestClient_Depth(t *testing.T) {
 			`,
 		}
 		client := &Client{core: backend}
-		gotDepth, err := client.Depth(wantMarket)
+		gotDepth, err := client.Depth(wantMarket, 0, 0)
 		if err != nil {
 			t.Fatalf("want no error but got `%s", err.Error())
 		}
@@ -1120,7 +1120,6 @@ func TestClient_LightningWithdraw(t *testing.T) {
 // mockCore is client core client mock implementation for testing
 // purpose
 type mockCore struct {
-
 	// request is last request passed to do() call
 	request request
 
@@ -1133,7 +1132,7 @@ type mockCore struct {
 
 // do implements core. Stores request and returns predefined respJSON
 // and error.
-func (c *mockCore) do(r request) ([]byte, error) {
+func (c *mockCore) do(needAuth bool, r request) ([]byte, error) {
 	c.request = r
 	return []byte(c.respJSON), c.error
 }

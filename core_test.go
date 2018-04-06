@@ -184,7 +184,7 @@ func Test_graphQLCore_do(t *testing.T) {
 			url:      s.url() + path,
 			macaroon: mac,
 		}
-		_, err := c.do(request{
+		_, err := c.do(true, request{
 			Query: "query",
 			Variables: struct {
 				Var1 string `json:"var1"`
@@ -208,7 +208,7 @@ func Test_graphQLCore_do(t *testing.T) {
 				Var1 string `json:"var1"`
 			}{"value"},
 		}
-		_, err := c.do(req)
+		_, err := c.do(true, req)
 		checkMethod(t, s)
 		checkURLPath(t, s)
 		checkHeaders(t, s)
@@ -234,7 +234,7 @@ func Test_graphQLCore_do(t *testing.T) {
 				Dec   decimal.Decimal `json:"dec"`
 			}{"value", "BTC", dec(10)},
 		}
-		_, err := c.do(req)
+		_, err := c.do(true, req)
 		checkMethod(t, s)
 		checkURLPath(t, s)
 		checkHeaders(t, s)

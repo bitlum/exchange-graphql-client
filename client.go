@@ -77,7 +77,7 @@ func (c *Client) Me() (Me, error) {
 		}
 	}{}
 
-	respJSON, err := c.do(req)
+	respJSON, err := c.do(true, req)
 	if err != nil {
 		return Me{}, errors.New("failed to do request: " + err.Error())
 	}
@@ -116,7 +116,7 @@ func (c *Client) UserID() (string, error) {
 		}
 	}{}
 
-	respJSON, err := c.do(req)
+	respJSON, err := c.do(true, req)
 	if err != nil {
 		return "", errors.New("failed to do request: " + err.Error())
 	}
@@ -174,7 +174,7 @@ func (c *Client) Tickers(markets []string) ([]Ticker, error) {
 
 	req.Variables = tickersRequestVariables{markets}
 
-	respJSON, err := c.do(req)
+	respJSON, err := c.do(false, req)
 	if err != nil {
 		return nil, errors.New("failed to do request: " + err.Error())
 	}
@@ -266,7 +266,7 @@ func (c *Client) Depth(market string, limit uint, interval float64) (Depth, erro
 		}
 	}{}
 
-	respJSON, err := c.do(req)
+	respJSON, err := c.do(false, req)
 	if err != nil {
 		return depth, errors.New("failed to do request: " + err.Error())
 	}
@@ -312,7 +312,7 @@ type Deposit struct {
 // Deposits returns account deposits in given offset and limit
 // from account change history.
 func (c *Client) Deposits(asset string, offset,
-	limit int64) ([]Deposit, error) {
+limit int64) ([]Deposit, error) {
 
 	var req request
 
@@ -344,7 +344,7 @@ $limit: Int!) {
 		}
 	}{}
 
-	respJSON, err := c.do(req)
+	respJSON, err := c.do(true, req)
 	if err != nil {
 		return nil, errors.New("failed to do request: " + err.Error())
 	}
@@ -425,7 +425,7 @@ func (c *Client) Order(id int64) (Order, error) {
 		}
 	}{}
 
-	respJSON, err := c.do(req)
+	respJSON, err := c.do(true, req)
 	if err != nil {
 		return Order{}, errors.New("failed to do request: " + err.
 			Error())
@@ -482,7 +482,7 @@ func (c *Client) createOrder(market string, amount decimal.Decimal, side string)
 		}
 	}{}
 
-	respJSON, err := c.do(req)
+	respJSON, err := c.do(true, req)
 	if err != nil {
 		return Order{}, errors.New("failed to do request: " + err.
 			Error())
@@ -582,7 +582,7 @@ $address: String!) {
 		}
 	}{}
 
-	respJSON, err := c.do(req)
+	respJSON, err := c.do(true, req)
 	if err != nil {
 		return Withdrawal{},
 			errors.New("failed to do request: " + err.Error())
@@ -634,7 +634,7 @@ func (c *Client) LightningNodeReachable(asset string,
 		}
 	}{}
 
-	respJSON, err := c.do(req)
+	respJSON, err := c.do(false, req)
 	if err != nil {
 		return false,
 			errors.New("failed to do request: " + err.Error())
@@ -736,7 +736,7 @@ func (c *Client) LightningNodeInfo(asset string) (LightningNodeInfo,
 		}
 	}{}
 
-	respJSON, err := c.do(req)
+	respJSON, err := c.do(false, req)
 	if err != nil {
 		return LightningNodeInfo{},
 			errors.New("failed to do request: " + err.Error())
@@ -788,7 +788,7 @@ $amount: String!) {
 		}
 	}{}
 
-	respJSON, err := c.do(req)
+	respJSON, err := c.do(true, req)
 	if err != nil {
 		return "", errors.New("failed to do request: " + err.Error())
 	}
@@ -843,7 +843,7 @@ func (c *Client) LightningWithdraw(asset string,
 		}
 	}{}
 
-	respJSON, err := c.do(req)
+	respJSON, err := c.do(true, req)
 	if err != nil {
 		return Withdrawal{},
 			errors.New("failed to do request: " + err.Error())
@@ -916,7 +916,7 @@ func (c *Client) Accounts(assets []string) ([]Account, error) {
 		}
 	}{}
 
-	respJSON, err := c.do(req)
+	respJSON, err := c.do(true, req)
 	if err != nil {
 		return []Account{},
 			errors.New("failed to do request: " + err.Error())
@@ -952,7 +952,7 @@ func (c *Client) IssueApiToken() (string, error) {
 		}
 	}{}
 
-	respJSON, err := c.do(req)
+	respJSON, err := c.do(true, req)
 	if err != nil {
 		return "",
 			errors.New("unable to do request: " + err.Error())
@@ -1057,7 +1057,7 @@ func (c *Client) Markets(markets []string, period int32) ([]MarketStatus, error)
 		period,
 	}
 
-	respJSON, err := c.do(req)
+	respJSON, err := c.do(false, req)
 	if err != nil {
 		return []MarketStatus{},
 			errors.New("failed to do request: " + err.Error())
@@ -1133,7 +1133,7 @@ func (c *Client) Deals(markets []string, limit int32) ([]MarketDeal, error) {
 		limit,
 	}
 
-	respJSON, err := c.do(req)
+	respJSON, err := c.do(false, req)
 	if err != nil {
 		return []MarketDeal{},
 			errors.New("failed to do request: " + err.Error())
