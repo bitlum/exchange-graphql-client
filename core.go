@@ -48,7 +48,7 @@ func (c *graphQLCore) do(needAuth bool, r request) ([]byte, error) {
 	}
 
 	if needAuth {
-		if c.jwt == "" {
+		if c.macaroon != nil {
 			// Adding nonce to protect client from replay-attack.
 			m, err := auth.AddNonce(c.macaroon, time.Now().UnixNano())
 			if err != nil {
@@ -71,8 +71,11 @@ func (c *graphQLCore) do(needAuth bool, r request) ([]byte, error) {
 
 			httpReq.Header.Set("Content-Type", "application/json")
 			httpReq.Header.Set("Authorization", "Macaroon "+token)
-		} else {
+		} else if c.jwt != "" {
 			httpReq.Header.Set("Authorization", "Bearer "+c.jwt)
+		} else {
+			return nil, errors.New("unable to make operation which requires" +
+				" auth without auth tokens")
 		}
 	}
 
