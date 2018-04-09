@@ -452,6 +452,7 @@ func TestClient_CreateOrder(t *testing.T) {
 		wantVariables := createOrderRequestVariables{
 			Market: wantMarket,
 			Amount: wantAmount,
+			Side:   "bid",
 		}
 		if !reflect.DeepEqual(wantVariables, got.Variables) {
 			t.Errorf("want variables `%#v` but got `%#v`",
@@ -1014,6 +1015,143 @@ func TestClient_LightningWithdraw(t *testing.T) {
 		}
 		checkRequest(t, backend.request)
 	})
+}
+
+func TestClient_Accounts_coreError(t *testing.T) {
+	wantAssets := []string{"BTC"}
+	backend := &mockCore{
+		error: errors.New("fail"),
+	}
+	client := &Client{core: backend}
+	_, err := client.Accounts(wantAssets)
+	if err == nil {
+		t.Fatal("want error but got no error")
+	}
+	if !strings.Contains(err.Error(), "failed to do request") {
+		t.Fatalf("want json.Unmarshal error but got `%s`", err.Error())
+	}
+	wantVariables := accountsRequest{
+		Assets: wantAssets,
+	}
+	// TODO test backend.request.Query
+	gotVariables := backend.request.Variables
+	if !reflect.DeepEqual(wantVariables, gotVariables) {
+		t.Errorf("want variables `%#v` but got `%#v`",
+			wantVariables, gotVariables)
+	}
+}
+
+func TestClient_Accounts_invalidResponseJSON(t *testing.T) {
+	wantAssets := []string{"BTC"}
+	backend := &mockCore{
+		respJSON: `
+				{ "errors": 123, "data": "qwerty" }
+			`,
+	}
+	client := &Client{core: backend}
+	_, err := client.Accounts(wantAssets)
+	if err == nil {
+		t.Fatal("want error but got no error")
+	}
+	if !strings.Contains(err.Error(), "failed to json.Unmarshal") {
+		t.Fatalf("want json.Unmarshal error but got `%s`", err.Error())
+	}
+	wantVariables := accountsRequest{
+		Assets: wantAssets,
+	}
+	// TODO test backend.request.Query
+	gotVariables := backend.request.Variables
+	if !reflect.DeepEqual(wantVariables, gotVariables) {
+		t.Errorf("want variables `%#v` but got `%#v`",
+			wantVariables, gotVariables)
+	}
+}
+
+func TestClient_Accounts_exchangeError(t *testing.T) {
+	wantAssets := []string{"BTC"}
+	backend := &mockCore{
+		respJSON: `
+				{ "errors": [{ "message": "some error" }] }
+			`,
+	}
+	client := &Client{core: backend}
+	_, err := client.Accounts(wantAssets)
+	if err == nil {
+		t.Fatal("want error but got no error")
+	}
+	if !strings.Contains(err.Error(), "exchange error") {
+		t.Fatalf("want json.Unmarshal error but got `%s`", err.Error())
+	}
+	wantVariables := accountsRequest{
+		Assets: wantAssets,
+	}
+	// TODO test backend.request.Query
+	gotVariables := backend.request.Variables
+	if !reflect.DeepEqual(wantVariables, gotVariables) {
+		t.Errorf("want variables `%#v` but got `%#v`",
+			wantVariables, gotVariables)
+	}
+}
+
+func TestClient_Accounts_succeed(t *testing.T) {
+	wantAssets := []string{"BTC"}
+	wantAccounts := []Account{{
+		Asset:      "BTC",
+		Address:    "some-address",
+		Available:  dec(123.123),
+		Estimation: dec(234.234),
+		Freezed:    dec(345.345),
+		Pending: PendingInfo{
+			Amount: dec(456.456),
+			Transactions: []Transaction{{
+				ConfirmationsLeft: 12,
+				Confirmations:     23,
+				Address:           "some-address-2",
+				Amount:            dec(567.567),
+				TxID:              "transaction-id",
+			}},
+		},
+	}}
+	backend := &mockCore{
+		respJSON: `
+				{ "data": { "accounts": [{
+					"asset": "BTC",
+					"address": "some-address",
+					"available": "123.123",
+					"estimation": "234.234",
+					"freezed": "345.345",
+					"pending": {
+						"amount": "456.456",
+						"transactions": [{
+							"confirmationsLeft": 12,
+							"confirmations": 23,
+							"address": "some-address-2",
+							"amount": "567.567",
+							"txid": "transaction-id"
+						}]
+					}
+				}] } }
+			`,
+	}
+	client := &Client{core: backend}
+	gotAccounts, err := client.Accounts(wantAssets)
+	if err != nil {
+		t.Fatalf("want no error but got `%s", err.Error())
+	}
+	if !reflect.DeepEqual(wantAccounts, gotAccounts) {
+		t.Errorf("want accounts `%#v` but got `%#v`",
+			wantAccounts,
+			gotAccounts)
+	}
+	wantVariables := accountsRequest{
+		Assets: wantAssets,
+	}
+	// TODO test backend.request.Query
+	gotVariables := backend.request.Variables
+	if !reflect.DeepEqual(wantVariables, gotVariables) {
+		t.Errorf("want variables `%#v` but got `%#v`",
+			wantVariables, gotVariables)
+	}
 }
 
 // mockCore is client core client mock implementation for testing
