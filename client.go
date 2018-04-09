@@ -247,7 +247,7 @@ type Deposit struct {
 // Deposits returns account deposits in given offset and limit
 // from account change history.
 func (c *Client) Deposits(asset string, offset,
-limit int64) ([]Deposit, error) {
+	limit int64) ([]Deposit, error) {
 
 	var req request
 
@@ -799,8 +799,36 @@ func (c *Client) LightningWithdraw(asset string,
 
 // AccountsRequest is a query variables used in request user's account
 // balances
-type AccountsRequest struct {
+type accountsRequest struct {
 	Assets []string `json:"assets"`
+}
+
+type Transaction struct {
+	// ConfirmationsLeft is the number of confirmations which has to
+	// happen, before funds will be enrolled.
+	ConfirmationsLeft int
+
+	// Confirmations is the number of confirmations already done.
+	Confirmations int
+
+	// Address is the address on which funds are send.
+	Address string
+
+	// Amount is amount of funds are send
+	Amount decimal.Decimal
+
+	// TxID is the transaction ID of operation in blockchain.
+	TxID string
+}
+
+type PendingInfo struct {
+	// Amount is the funds which are awaiting to be confirmed in the
+	// blockchain and after that to be enrolled in the account.
+	Amount decimal.Decimal
+
+	// Transactions is the pending transactions which are waiting to be
+	// approved.
+	Transactions []Transaction
 }
 
 // Account struct describes the current balance of the exchange user by
@@ -809,21 +837,24 @@ type Account struct {
 	// A name of asset. Currently: BTC, BCH, ETH, LTC, DASH
 	Asset string
 
-	// Address on which funds has to be sent to be deposited on the account.
-	// If returned null than address has to be created first
+	// Address on which funds has to be sent to be deposited on the
+	// account. If returned null than address has to be created first.
 	Address string
 
 	// Available is the funds which can be used in trading.
 	Available decimal.Decimal
 
-	// Estimation is the estimated number of dollars which corresponds to this asset.
+	// Estimation is the estimated number of dollars which corresponds
+	// to this asset.
 	Estimation decimal.Decimal
 
 	// Freezed is the funds which currently occupied in trades.
 	Freezed decimal.Decimal
 
-	// Pending is the information which related to the blockchain, for example: how much funds are waiting to be approved, before to be enrolled in the account.
-	Pending decimal.Decimal
+	// Pending is the information which related to the blockchain, for
+	// example: how much funds are waiting to be approved, before to be
+	// enrolled in the account.
+	Pending PendingInfo
 }
 
 // Accounts shows balances for the assets owned by loggedin user
@@ -835,12 +866,26 @@ func (c *Client) Accounts(assets []string) ([]Account, error) {
 	req.Query = `
 		query Accounts($assets: [Asset!]!) {
   			accounts( assets: $assets) {
-				asset, address, available, estimation, freezed
+				asset
+				address
+				available
+				estimation
+				freezed
+				pending {
+					amount
+					transactions {
+        				confirmationsLeft
+        				confirmations
+        				address
+        				amount
+        				txid
+					}
+				}
   			}
 		}
 	`
 
-	req.Variables = AccountsRequest{
+	req.Variables = accountsRequest{
 		Assets: assets,
 	}
 
