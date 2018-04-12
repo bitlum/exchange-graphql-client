@@ -218,9 +218,9 @@ func (c *Client) Depth(market string, limit uint, interval float64) (Depth, erro
 	return resp.Data.Depth, nil
 }
 
-// depositRequestVariables is a query variables used in request
+// depositsRequestVariables is a query variables used in request
 // in client Deposits method.
-type depositRequestVariables struct {
+type depositsRequestVariables struct {
 	Assets []string `json:"assets"`
 	Offset int64    `json:"offset"`
 	Limit  int64    `json:"limit"`
@@ -228,6 +228,18 @@ type depositRequestVariables struct {
 
 // Deposit represents an account deposit.
 type Deposit struct {
+	// Asset which was deposited
+	Asset string
+
+	// Time when deposit occured
+	Time float64
+
+	// Change is an amount on which balance has been changed.
+	Change decimal.Decimal
+
+	// Balance is final amount of asset on account after depost
+	Balance decimal.Decimal
+
 	// PaymentID is system specific withdraw operation ID.
 	// In blockchain it is transaction ID, in lightning network
 	// it is payment hash.
@@ -237,11 +249,8 @@ type Deposit struct {
 	// occurred,
 	PaymentType string
 
-	// Change is an amount on which balance has been changed.
-	Change decimal.Decimal
-
-	// Time when deposit was registered.
-	Time float64
+	// PaymentAddr is the address of payment receiver
+	PaymentAddr string
 }
 
 // Deposits returns account deposits in given offset and limit
@@ -257,16 +266,19 @@ $limit: Int!) {
   			balanceUpdateRecords(assets: $assets, offset: $offset,
 				recordTypes: deposit, limit: $limit) {
     			... on Deposit {
-      				change
-      				time
+					asset
+					time
+					change
+					balance
       				paymentID
       				paymentType
+					paymentAddr
     			}
   			}
 		}
 	`
 
-	req.Variables = depositRequestVariables{
+	req.Variables = depositsRequestVariables{
 		Assets: []string{asset},
 		Offset: offset,
 		Limit:  limit,
@@ -1136,4 +1148,67 @@ func (c *Client) Deals(markets []string, limit int32) ([]MarketDeal, error) {
 	}
 
 	return resp.Data.Deals, nil
+}
+
+// depositsRequestVariables is a query variables used in request
+// in client Deposits method.
+type BalanceUpdateRecordParams struct {
+	Assets       []string `json:"assets"`
+	StartTime    float64  `json:"startTime"`
+	EndTime      float64  `json:"endTime"`
+	RecordsTypes []string `json:"recordsTypes"`
+	Offset       int64    `json:"offset"`
+	Limit        int64    `json:"limit"`
+}
+
+// BalanceUpdateRecord returns balance update records according
+// specified constraints.
+func (c *Client) BalanceUpdateRecord(asset string, offset,
+	limit int64) ([]Deposit, error) {
+
+	var req request
+
+	req.Query = `
+		query GetBalanceUpdates($assets: [Asset!]!, $offset: Int!,
+$limit: Int!) {
+  			balanceUpdateRecords(assets: $assets, offset: $offset,
+				recordTypes: deposit, limit: $limit) {
+    			... on Deposit {
+      				change
+      				time
+      				paymentID
+      				paymentType
+    			}
+  			}
+		}
+	`
+
+	req.Variables = depositsRequestVariables{
+		Assets: []string{asset},
+		Offset: offset,
+		Limit:  limit,
+	}
+
+	resp := struct {
+		responseBase
+		Data struct {
+			Deposits []Deposit `json:"balanceUpdateRecords"`
+		}
+	}{}
+
+	respJSON, err := c.do(true, req)
+	if err != nil {
+		return nil, errors.New("failed to do request: " + err.Error())
+	}
+
+	if err := json.Unmarshal(respJSON, &resp); err != nil {
+		return nil, errors.New("failed to json.Unmarshal resp: " +
+			err.Error())
+	}
+
+	if err := resp.Error(); err != nil {
+		return nil, errors.New("exchange error: " + err.Error())
+	}
+
+	return resp.Data.Deposits, nil
 }

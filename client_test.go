@@ -219,7 +219,7 @@ func TestClient_Deposits(t *testing.T) {
 	wantLimit := int64(50)
 	checkRequest := func(t *testing.T, got request) {
 		// TODO (dimuls): validate request.Query
-		wantVariables := depositRequestVariables{
+		wantVariables := depositsRequestVariables{
 			Assets: []string{wantAsset},
 			Offset: wantOffset,
 			Limit:  wantLimit,
