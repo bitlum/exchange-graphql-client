@@ -739,30 +739,18 @@ func TestClient_LightningNodeReachable(t *testing.T) {
 }
 
 func TestClient_LightningNodeInfo(t *testing.T) {
-	wantAsset := "ETH"
-	checkRequest := func(t *testing.T, got request) {
-		// TODO (dimuls): validate request.Query
-		wantVariables := nodeInfoRequestVariables{
-			Asset: wantAsset,
-		}
-		if !reflect.DeepEqual(wantVariables, got.Variables) {
-			t.Errorf("want variables `%#v` but got `%#v`",
-				wantVariables, got.Variables)
-		}
-	}
 	t.Run("when core error", func(t *testing.T) {
 		backend := &mockCore{
 			error: errors.New("fail"),
 		}
 		client := &Client{core: backend}
-		_, err := client.LightningNodeInfo(wantAsset)
+		_, err := client.Info()
 		if err == nil {
 			t.Fatal("want error but got no error")
 		}
 		if !strings.Contains(err.Error(), "failed to do request") {
 			t.Fatalf("want json.Unmarshal error but got `%s`", err.Error())
 		}
-		checkRequest(t, backend.request)
 	})
 	t.Run("when invalid response json", func(t *testing.T) {
 		backend := &mockCore{
@@ -771,14 +759,13 @@ func TestClient_LightningNodeInfo(t *testing.T) {
 			`,
 		}
 		client := &Client{core: backend}
-		_, err := client.LightningNodeInfo(wantAsset)
+		_, err := client.Info()
 		if err == nil {
 			t.Fatal("want error but got no error")
 		}
 		if !strings.Contains(err.Error(), "failed to json.Unmarshal") {
 			t.Fatalf("want json.Unmarshal error but got `%s`", err.Error())
 		}
-		checkRequest(t, backend.request)
 	})
 	t.Run("when exchange error", func(t *testing.T) {
 		backend := &mockCore{
@@ -787,54 +774,59 @@ func TestClient_LightningNodeInfo(t *testing.T) {
 			`,
 		}
 		client := &Client{core: backend}
-		_, err := client.LightningNodeInfo(wantAsset)
+		_, err := client.Info()
 		if err == nil {
 			t.Fatal("want error but got no error")
 		}
 		if !strings.Contains(err.Error(), "exchange error") {
 			t.Fatalf("want exchange error but got `%s`", err.Error())
 		}
-		checkRequest(t, backend.request)
 	})
 	t.Run("when valid response without errors", func(t *testing.T) {
-		wantInfo := LightningNodeInfo{
-			Host:               "host",
-			Port:               "port",
-			MinAmount:          dec(0.1),
-			MaxAmount:          dec(0.9),
-			IdentityPubkey:     "pub-key",
-			Alias:              "bob",
-			NumPendingChannels: 12,
-			NumActiveChannels:  6,
-			NumPeers:           123,
-			BlockHeight:        100,
-			BlockHash:          "hash",
-			SyncedToChain:      true,
-			Testnet:            false,
-			Chains:             []string{"chain-1", "chain-2"},
+		wantInfo := &Info{
+			Network: "simnet",
+			Time: "123214124",
+			Lightning: &LightningNodeInfo{
+				Host:               "host",
+				Port:               "port",
+				MinAmount:          dec(0.1),
+				MaxAmount:          dec(0.9),
+				IdentityPubkey:     "pub-key",
+				Alias:              "bob",
+				NumPendingChannels: 12,
+				NumActiveChannels:  6,
+				NumPeers:           123,
+				BlockHeight:        100,
+				BlockHash:          "hash",
+				SyncedToChain:      true,
+				Asset:              "BTC",
+			},
 		}
 		backend := &mockCore{
 			respJSON: `
-				{ "data": { "lightningInfo": {
-					"host": "host",
-					"port": "port",
-					"minAmount": "0.1",
-					"maxAmount": "0.9",
-					"identityPubkey": "pub-key",
-					"alias": "bob",
-					"numPendingChannels": 12,
-					"numActiveChannels": 6,
-					"numPeers": 123,
-					"blockHeight": 100,
-					"blockHash": "hash",
-					"syncedToChain": true,
-					"testnet": false,
-					"chains": ["chain-1", "chain-2"]
-				} } }
+				{ "data": { "info": {
+					"network": "simnet",
+					"time": "123214124",
+					"lightning": {
+						"host": "host",
+						"port": "port",
+						"minAmount": "0.1",
+						"maxAmount": "0.9",
+						"identityPubkey": "pub-key",
+						"alias": "bob",
+						"numPendingChannels": 12,
+						"numActiveChannels": 6,
+						"numPeers": 123,
+						"blockHeight": 100,
+						"blockHash": "hash",
+						"syncedToChain": true,
+						"testnet": false,
+						"asset": "BTC"
+				} } } }
 			`,
 		}
 		client := &Client{core: backend}
-		gotInfo, err := client.LightningNodeInfo(wantAsset)
+		gotInfo, err := client.Info()
 		if err != nil {
 			t.Fatalf("want no error but got `%s", err.Error())
 		}
@@ -844,7 +836,6 @@ func TestClient_LightningNodeInfo(t *testing.T) {
 			t.Log("want and got diff: ", pretty.Diff(wantInfo,
 				gotInfo))
 		}
-		checkRequest(t, backend.request)
 	})
 }
 

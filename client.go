@@ -247,7 +247,7 @@ type Deposit struct {
 // Deposits returns account deposits in given offset and limit
 // from account change history.
 func (c *Client) Deposits(asset string, offset,
-	limit int64) ([]Deposit, error) {
+limit int64) ([]Deposit, error) {
 
 	var req request
 
@@ -588,106 +588,118 @@ func (c *Client) LightningNodeReachable(asset string,
 	return resp.Data.Reachable, nil
 }
 
+type Info struct {
+	// Network is a type of blockchain network which is configures on the
+	// server.
+	Network string
+
+	// Time is the time on the server.
+	Time string
+
+	// Lightning is the information about server lightning network node.
+	Lightning *LightningNodeInfo
+}
+
 // LightningNodeInfo is a lightning network node info.
 type LightningNodeInfo struct {
-	Host      string
-	Port      string
+	// Host is a lightning network daemon public host which is used for
+	// incoming peer connection.
+	Host string
+
+	// Port is a lightning network daemon public port which is used for
+	// incoming peer connection.
+	Port string
+
+	// MinAmount is a minimal amount payment supported by the lightning node.
 	MinAmount decimal.Decimal
+
+	// MaxAmount is a maximum amount payment supported by lightning node.
 	MaxAmount decimal.Decimal
 
-	// IdentityPubkey is the identity pubkey of the current node.
+	// IdentityPubkey the identity pubkey of the zigzag lightning network node,
+	// which identifies it in the network.
 	IdentityPubkey string
 
-	// Alias if applicable, the alias of the current node, e.g. "bob".
+	// Alias is a public name, by which node could be found in the lightning network
+	// explorers.
 	Alias string
 
-	// NumPendingChannels is the number of pending channels.
+	// NumPendingChannels number of pending channels.
 	NumPendingChannels uint32
 
-	// NumActiveChannels is the number of active channels.
+	// NumActiveChannels is a number of active channels.
 	NumActiveChannels uint32
 
-	// NumPeers is the number of peers.
+	// NumPeers is number of peers which are connected to the node.
 	NumPeers uint32
 
-	// BlockHeight is the node's current view of the height of the best
-	// block.
+	// BlockHeight is the node's current view of the height of the best block.
 	BlockHeight uint32
 
-	// BlockHash is the node's current view of the hash of the best
-	// block.
+	// BlockHash is the node's current view of the hash of the best block.
 	BlockHash string
 
-	// SyncedToChain means whether the wallet's view is synced to the
-	// main chain.
+	// SyncedToChain denotes whether the lightning wallet is synced to the
+	// chain.
 	SyncedToChain bool
 
-	// Testnet means whether the current node is connected to testnet
-	Testnet bool
-
-	// Chains is a list of active chains the node is connected to
-	Chains []string
+	// Asset is a type of currency which lightning network is operating with.
+	Asset string
 }
 
-// nodeInfoRequestVariables is a query variables used in request
-// in client LightningNodeInfo method.
-type nodeInfoRequestVariables struct {
-	Asset string `json:"asset"`
-}
-
-// LightningNodeInfo returns exchange lightning network node for
-// specified asset info
-func (c *Client) LightningNodeInfo(asset string) (LightningNodeInfo,
-	error) {
+// Info return the general information about service state,
+// and configuration.
+func (c *Client) Info() (*Info, error) {
 
 	var req request
 	req.Query = `
-		query LightningNodeInfo($asset: Asset!) {
-			lightningInfo(asset: $asset)   {
-    		host
-			port
-			minAmount
-    		maxAmount
-    		identityPubkey
-    		alias
-    		numPendingChannels
-    		numActiveChannels
-    		numPeers
-    		blockHeight
-    		blockHash
-    		syncedToChain
-			testnet
-			chains
+		query Info {
+			info {
+				network
+				time
+				lightning {
+    				host
+					port
+					minAmount
+					maxAmount
+					identityPubkey
+					alias
+					numPendingChannels
+					numActiveChannels
+					numPeers
+					blockHeight
+					blockHash
+					syncedToChain
+					asset
+				}
 		  }
 		}
 	`
 
-	req.Variables = nodeInfoRequestVariables{asset}
-
 	resp := struct {
 		responseBase
 		Data struct {
-			Info LightningNodeInfo `json:"lightningInfo"`
+			Info Info `json:"info"`
 		}
 	}{}
 
 	respJSON, err := c.do(false, req)
 	if err != nil {
-		return LightningNodeInfo{},
+		return &Info{},
 			errors.New("failed to do request: " + err.Error())
 	}
 
 	if err := json.Unmarshal(respJSON, &resp); err != nil {
-		return LightningNodeInfo{},
+		return &Info{},
 			errors.New("failed to json.Unmarshal resp: " + err.Error())
 	}
 
 	if err := resp.Error(); err != nil {
-		return LightningNodeInfo{},
+		return &Info{},
 			errors.New("exchange error: " + err.Error())
 	}
 
-	return resp.Data.Info, nil
+	return &resp.Data.Info, nil
 }
 
 // lightningCreateRequestVariables is a query variables used in request
